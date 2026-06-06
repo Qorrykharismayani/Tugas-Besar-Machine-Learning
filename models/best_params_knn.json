@@ -1,5 +1,0 @@
-{
-  "n_neighbors": 13,
-  "weights": "uniform",
-  "metric": "minkowski"
-}
