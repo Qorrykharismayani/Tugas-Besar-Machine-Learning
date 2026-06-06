@@ -4,12 +4,12 @@ import numpy as np
 import joblib
 import json
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import OrdinalEncoder, LabelEncoder
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 
 # ── Page Config ────────────────────────────────────────────────
 st.set_page_config(
-    page_title="ML Classification App",
-    page_icon="🤖",
+    page_title="Telco Churn Prediction",
+    page_icon="📡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -44,15 +44,18 @@ def load_all_models():
     # Random Forest
     try:
         models['rf'] = {
-            'model'     : joblib.load('models/random_forest_model.pkl'),
-            'features'  : joblib.load('models/selected_features.pkl'),
-            'metadata'  : joblib.load('models/model_metadata.pkl'),
-            'params'    : json.load(open('models/best_params_rf.json')),
+            'model'    : joblib.load('models/random_forest_model.pkl'),
+            'features' : joblib.load('models/selected_features.pkl'),
+            'metadata' : joblib.load('models/model_metadata.pkl'),
+            'params'   : json.load(open('models/best_params_rf.json')),
+            'scaler'   : joblib.load('models/rf_scaler.pkl'),
+            'le_dict'  : joblib.load('models/rf_label_encoders.pkl'),
         }
-    except:
+    except Exception as e:
+        st.error(f"RF Error: {e}")
         models['rf'] = None
 
-    # KNN
+    # KNN (teman 1)
     try:
         models['knn'] = {
             'model'       : joblib.load('models/knn_model.pkl'),
@@ -63,193 +66,167 @@ def load_all_models():
     except:
         models['knn'] = None
 
-    # Slot model 3 & 4 (isi nama file sesuai teman)
+    # Model 3 (teman 2) — uncomment setelah file tersedia
     # try:
     #     models['dt'] = {
-    #         'model'    : joblib.load('models/decision_tree_model.pkl'),
-    #         'features' : joblib.load('models/dt_selected_features.pkl'),
-    #         'metadata' : joblib.load('models/dt_metadata.pkl'),
-    #         'params'   : json.load(open('models/best_params_dt.json')),
+    #         'model'   : joblib.load('models/decision_tree_model.pkl'),
+    #         'metadata': joblib.load('models/dt_metadata.pkl'),
+    #         'params'  : json.load(open('models/best_params_dt.json')),
     #     }
     # except:
     #     models['dt'] = None
+
+    # Model 4 (teman 3) — uncomment setelah file tersedia
+    # try:
+    #     models['svm'] = {
+    #         'model'   : joblib.load('models/svm_model.pkl'),
+    #         'metadata': joblib.load('models/svm_metadata.pkl'),
+    #         'params'  : json.load(open('models/best_params_svm.json')),
+    #     }
+    # except:
+    #     models['svm'] = None
 
     return models
 
 models = load_all_models()
 
 # ══════════════════════════════════════════════════════════════
-#  PREPROCESSING FUNCTIONS
-# ══════════════════════════════════════════════════════════════
-
-# ── Preprocessing RF ───────────────────────────────────────────
-def preprocess_rf(data: dict) -> pd.DataFrame:
-    df = pd.DataFrame([data])
-    df.drop(columns=['city'], inplace=True, errors='ignore')
-
-    flag_cols = ['gender', 'company_size', 'company_type',
-                 'major_discipline', 'last_new_job', 'enrolled_university']
-    for col in flag_cols:
-        df[f'{col}_missing'] = (df[col] == 'Unknown').astype(int)
-
-    df['job_hopper'] = (
-        (df['last_new_job'].isin(['1', 'never'])) &
-        (df['experience'].isin(['<1','1','2','3','4','5']))
-    ).astype(int)
-
-    df['high_value_candidate'] = (
-        (df['experience'].isin(['10','11','12','13','14','15','>20'])) &
-        (df['education_level'].isin(['Masters', 'Phd']))
-    ).astype(int)
-
-    df['is_fresher'] = (
-        (df['experience'].isin(['<1', '1', '2'])) &
-        (df['enrolled_university'] != 'no_enrollment')
-    ).astype(int)
-
-    df['mismatch_candidate'] = (
-        (df['relevent_experience'] == 'No relevent experience') &
-        (df['company_size'].isin(['<10', '10/49', '50-99', 'Unknown']))
-    ).astype(int)
-
-    df['ambitious'] = (
-        (df['city_development_index'] < 0.75) &
-        (df['training_hours'] > 50)
-    ).astype(int)
-
-    df['career_stagnant'] = (
-        (df['last_new_job'].isin(['>4', '4'])) &
-        (df['experience'].isin(['10','11','12','13','14','15','>20']))
-    ).astype(int)
-
-    exp_map = {'<1': 0.5, '>20': 21}
-    exp_numeric = df['experience'].replace(exp_map)
-    exp_numeric = pd.to_numeric(exp_numeric, errors='coerce').fillna(1)
-    df['training_per_exp'] = df['training_hours'] / (exp_numeric + 1)
-
-    df['city_tier'] = pd.cut(
-        df['city_development_index'],
-        bins=[0, 0.62, 0.78, 0.90, 1.0],
-        labels=[0, 1, 2, 3]
-    ).astype(int)
-
-    ordinal_config = {
-        'experience'     : ['<1','1','2','3','4','5','6','7','8','9','10',
-                            '11','12','13','14','15','16','17','18','19','20','>20'],
-        'last_new_job'   : ['never','1','2','3','4','>4'],
-        'company_size'   : ['<10','10/49','50-99','100-500','500-999',
-                            '1000-4999','5000-9999','10000+','Unknown'],
-        'education_level': ['Primary School','High School','Graduate','Masters','Phd'],
-    }
-    for col, order in ordinal_config.items():
-        enc = OrdinalEncoder(
-            categories=[order],
-            handle_unknown='use_encoded_value',
-            unknown_value=-1
-        )
-        df[col] = enc.fit_transform(df[[col]])
-
-    nominal_cols = ['gender', 'relevent_experience', 'enrolled_university',
-                    'major_discipline', 'company_type']
-    for col in nominal_cols:
-        le = LabelEncoder()
-        df[col] = le.fit_transform(df[col].astype(str))
-
-    return df[models['rf']['features']]
-
-
-# ── Preprocessing KNN ──────────────────────────────────────────
-def preprocess_knn(data: dict) -> pd.DataFrame:
-    df = pd.DataFrame([data])
-    # KNN pakai preprocessor (ColumnTransformer) yang sudah di-fit
-    preprocessor = models['knn']['preprocessor']
-    X_transformed = preprocessor.transform(df)
-    return X_transformed
-
-
-# ══════════════════════════════════════════════════════════════
-#  INPUT FORM (sama untuk semua model)
+#  INPUT FORM
 # ══════════════════════════════════════════════════════════════
 def input_form():
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.markdown("**📍 Lokasi**")
-        city = st.selectbox("City", ['city_103', 'city_21', 'city_50',
-                                      'city_67', 'city_16', 'city_other'])
-        city_dev = st.slider("City Development Index", 0.448, 0.949, 0.900)
-
-        st.markdown("**🎓 Pendidikan**")
-        education = st.selectbox("Education Level", [
-            'Primary School','High School','Graduate','Masters','Phd'
-        ])
-        major = st.selectbox("Major Discipline", [
-            'STEM','Business Degree','Arts','Humanities',
-            'No Major','Other','Unknown'
-        ])
+        st.markdown("**👤 Info Pelanggan**")
+        gender         = st.selectbox("Gender", ['Male', 'Female'])
+        senior_citizen = st.selectbox("Senior Citizen", ['No', 'Yes'])
+        partner        = st.selectbox("Partner", ['Yes', 'No'])
+        dependents     = st.selectbox("Dependents", ['No', 'Yes'])
+        tenure         = st.slider("Tenure (bulan)", 0, 72, 12)
 
     with col2:
-        st.markdown("**💼 Pengalaman**")
-        experience = st.selectbox("Years of Experience", [
-            '<1','1','2','3','4','5','6','7','8','9','10',
-            '11','12','13','14','15','16','17','18','19','20','>20'
-        ])
-        relevent_exp = st.selectbox("Relevant Experience", [
-            'Has relevent experience', 'No relevent experience'
-        ])
-        last_job = st.selectbox("Last New Job (years ago)", [
-            'never','1','2','3','4','>4'
-        ])
+        st.markdown("**📞 Layanan**")
+        phone_service   = st.selectbox("Phone Service", ['Yes', 'No'])
+        multiple_lines  = st.selectbox("Multiple Lines", ['No', 'Yes', 'No phone service'])
+        internet_service= st.selectbox("Internet Service", ['DSL', 'Fiber optic', 'No'])
+        online_security = st.selectbox("Online Security", ['No', 'Yes', 'No internet service'])
+        online_backup   = st.selectbox("Online Backup", ['Yes', 'No', 'No internet service'])
+        device_protection=st.selectbox("Device Protection", ['No', 'Yes', 'No internet service'])
+        tech_support    = st.selectbox("Tech Support", ['No', 'Yes', 'No internet service'])
+        streaming_tv    = st.selectbox("Streaming TV", ['No', 'Yes', 'No internet service'])
+        streaming_movies= st.selectbox("Streaming Movies", ['No', 'Yes', 'No internet service'])
 
     with col3:
-        st.markdown("**🏢 Perusahaan**")
-        company_size = st.selectbox("Company Size", [
-            '<10','10/49','50-99','100-500','500-999',
-            '1000-4999','5000-9999','10000+','Unknown'
+        st.markdown("**💳 Billing**")
+        contract        = st.selectbox("Contract", ['Month-to-month', 'One year', 'Two year'])
+        paperless       = st.selectbox("Paperless Billing", ['Yes', 'No'])
+        payment_method  = st.selectbox("Payment Method", [
+            'Electronic check', 'Mailed check',
+            'Bank transfer (automatic)', 'Credit card (automatic)'
         ])
-        company_type = st.selectbox("Company Type", [
-            'Pvt Ltd','Funded Startup','Early Stage Startup',
-            'Public Sector','NGO','Other','Unknown'
-        ])
-        st.markdown("**👤 Profil**")
-        gender = st.selectbox("Gender", ['Male','Female','Other','Unknown'])
-        enrolled = st.selectbox("Enrolled University", [
-            'no_enrollment','Part time course','Full time course','Unknown'
-        ])
-        training_hours = st.number_input(
-            "Training Hours", min_value=1, max_value=336, value=50
-        )
+        monthly_charges = st.number_input("Monthly Charges ($)", 0.0, 200.0, 65.0)
+        total_charges   = st.number_input("Total Charges ($)", 0.0, 10000.0, 1000.0)
 
     return {
-        'city'                  : city,
-        'city_development_index': city_dev,
-        'gender'                : gender,
-        'relevent_experience'   : relevent_exp,
-        'enrolled_university'   : enrolled,
-        'education_level'       : education,
-        'major_discipline'      : major,
-        'experience'            : experience,
-        'company_size'          : company_size,
-        'company_type'          : company_type,
-        'last_new_job'          : last_job,
-        'training_hours'        : training_hours,
+        'gender'          : gender,
+        'SeniorCitizen'   : 1 if senior_citizen == 'Yes' else 0,
+        'Partner'         : partner,
+        'Dependents'      : dependents,
+        'tenure'          : tenure,
+        'PhoneService'    : phone_service,
+        'MultipleLines'   : multiple_lines,
+        'InternetService' : internet_service,
+        'OnlineSecurity'  : online_security,
+        'OnlineBackup'    : online_backup,
+        'DeviceProtection': device_protection,
+        'TechSupport'     : tech_support,
+        'StreamingTV'     : streaming_tv,
+        'StreamingMovies' : streaming_movies,
+        'Contract'        : contract,
+        'PaperlessBilling': paperless,
+        'PaymentMethod'   : payment_method,
+        'MonthlyCharges'  : monthly_charges,
+        'TotalCharges'    : total_charges,
     }
 
+# ══════════════════════════════════════════════════════════════
+#  PREPROCESSING RF
+# ══════════════════════════════════════════════════════════════
+def preprocess_rf(data: dict) -> pd.DataFrame:
+    df = pd.DataFrame([data])
+
+    # Missing flag
+    df['TotalCharges_missing'] = df['TotalCharges'].isnull().astype(int)
+    df['TotalCharges'] = pd.to_numeric(df['TotalCharges'], errors='coerce')
+    df['TotalCharges'] = df['TotalCharges'].fillna(df['TotalCharges'].median())
+
+    # Label Encoding
+    le_dict = models['rf']['le_dict']
+    cat_cols = df.select_dtypes(include='object').columns.tolist()
+    for col in cat_cols:
+        if col in le_dict:
+            try:
+                df[col] = le_dict[col].transform(df[col].astype(str))
+            except:
+                df[col] = 0
+
+    # Feature Engineering
+    df['loyal_monthly'] = (
+        (df['tenure'] > 24) & (df['Contract'] == 0)
+    ).astype(int)
+
+    df['charge_per_tenure'] = df['MonthlyCharges'] / (df['tenure'] + 1)
+
+    service_cols = ['PhoneService', 'MultipleLines', 'OnlineSecurity',
+                    'OnlineBackup', 'DeviceProtection', 'TechSupport',
+                    'StreamingTV', 'StreamingMovies']
+    df['total_services'] = df[service_cols].sum(axis=1)
+
+    # Scaling
+    num_cols = ['tenure', 'MonthlyCharges', 'TotalCharges',
+                'charge_per_tenure', 'total_services']
+    scaler = models['rf']['scaler']
+    df[num_cols] = scaler.transform(df[num_cols])
+
+    # Feature Engineering setelah scaling
+    df['new_high_charge'] = (
+        (df['tenure'] < 0) & (df['MonthlyCharges'] > 0)
+    ).astype(int)
+
+    df['no_protection'] = (
+        (df['OnlineSecurity'] == 0) &
+        (df['OnlineBackup'] == 0) &
+        (df['DeviceProtection'] == 0)
+    ).astype(int)
+
+    df['no_support'] = (
+        (df['TechSupport'] == 0) &
+        (df['StreamingTV'] == 0) &
+        (df['StreamingMovies'] == 0)
+    ).astype(int)
+
+    df['easy_cancel'] = (
+        (df['Contract'] == 0) & (df['PaperlessBilling'] == 1)
+    ).astype(int)
+
+    df['charge_ratio'] = df['TotalCharges'] / (df['MonthlyCharges'] + 0.001)
+
+    return df[models['rf']['features']]
 
 # ══════════════════════════════════════════════════════════════
-#  HASIL PREDIKSI (reusable untuk semua model)
+#  SHOW PREDICTION
 # ══════════════════════════════════════════════════════════════
-def show_prediction(pred, proba):
+def show_prediction(pred, proba, label_pos='Churn', label_neg='No Churn'):
     col_a, col_b, col_c = st.columns(3)
-    col_a.metric("Probabilitas Pindah",   f"{proba[1]*100:.1f}%")
-    col_b.metric("Probabilitas Bertahan", f"{proba[0]*100:.1f}%")
-    col_c.metric("Prediksi", "🚀 Pindah" if pred == 1 else "🏢 Bertahan")
+    col_a.metric(f"Probabilitas {label_pos}",  f"{proba[1]*100:.1f}%")
+    col_b.metric(f"Probabilitas {label_neg}", f"{proba[0]*100:.1f}%")
+    col_c.metric("Prediksi", f"🚨 {label_pos}" if pred == 1 else f"✅ {label_neg}")
 
     if pred == 1:
-        st.markdown('<div class="result-box leave">⚠️ Kandidat diprediksi akan PINDAH KERJA</div>',
+        st.markdown(f'<div class="result-box leave">⚠️ Pelanggan diprediksi akan CHURN</div>',
                     unsafe_allow_html=True)
     else:
-        st.markdown('<div class="result-box stay">✅ Kandidat diprediksi akan BERTAHAN</div>',
+        st.markdown(f'<div class="result-box stay">✅ Pelanggan diprediksi akan BERTAHAN</div>',
                     unsafe_allow_html=True)
 
     fig, ax = plt.subplots(figsize=(6, 1.5))
@@ -261,13 +238,12 @@ def show_prediction(pred, proba):
     ax.set_title('Distribusi Probabilitas')
     st.pyplot(fig)
 
-
 # ══════════════════════════════════════════════════════════════
 #  SIDEBAR
 # ══════════════════════════════════════════════════════════════
 with st.sidebar:
     st.image("https://img.icons8.com/color/96/000000/artificial-intelligence.png", width=80)
-    st.title("🤖 ML App")
+    st.title("📡 Telco Churn App")
     st.markdown("---")
 
     page = st.selectbox("📌 Pilih Model", [
@@ -278,136 +254,140 @@ with st.sidebar:
     ])
 
     st.markdown("---")
-
-    # Info model sesuai yang dipilih
     if "Random Forest" in page and models['rf']:
         meta = models['rf']['metadata']
         st.markdown("### 📊 Info Model RF")
-        st.metric("ROC-AUC", f"{meta['auc']:.4f}")
-        st.metric("Macro F1", f"{meta['macro_f1']}")
+        st.metric("ROC-AUC",  f"{meta['auc']:.4f}")
+        st.metric("Macro F1", f"{meta['macro_f1']:.4f}")
+        st.metric("Threshold",f"{meta['threshold']}")
         st.metric("Features", f"{meta['n_features']}")
 
     elif "KNN" in page and models['knn']:
         meta = models['knn']['metadata']
         st.markdown("### 📊 Info Model KNN")
-        st.metric("ROC-AUC", f"{meta['auc']:.4f}")
+        st.metric("ROC-AUC",  f"{meta['auc']:.4f}")
         st.metric("Macro F1", f"{meta['macro_f1']}")
         st.metric("Features", f"{meta['n_features']}")
-
 
 # ══════════════════════════════════════════════════════════════
 #  PAGE: RANDOM FOREST
 # ══════════════════════════════════════════════════════════════
 if "Random Forest" in page:
-    st.title("🌲 Random Forest — HR Job Change Prediction")
+    st.title("🌲 Random Forest — Telco Customer Churn")
+    st.markdown("Prediksi apakah pelanggan akan **berhenti berlangganan (churn)** atau tidak.")
     st.markdown("---")
 
     tab1, tab2, tab3 = st.tabs(["🔮 Prediksi", "📊 Model Info", "📋 Panduan"])
 
     with tab1:
-        st.subheader("Input Data Kandidat")
+        st.subheader("Input Data Pelanggan")
         input_data = input_form()
         st.markdown("---")
 
-    if st.button("🔮 Prediksi", use_container_width=True, type="primary"):
-        X_input   = preprocess_rf(input_data)
-        proba     = models['rf']['model'].predict_proba(X_input)[0]
-        threshold = models['rf']['metadata'].get('threshold', 0.5)
-        pred      = int(proba[1] >= threshold)
-        st.markdown("---")
-        st.subheader("📊 Hasil Prediksi")
-        st.caption(f"📌 Menggunakan threshold optimal: {threshold}")
-        show_prediction(pred, proba)
+        if st.button("🔮 Prediksi Sekarang", use_container_width=True, type="primary"):
+            try:
+                X_input   = preprocess_rf(input_data)
+                proba     = models['rf']['model'].predict_proba(X_input)[0]
+                threshold = models['rf']['metadata'].get('threshold', 0.5)
+                pred      = int(proba[1] >= threshold)
+
+                st.markdown("---")
+                st.subheader("📊 Hasil Prediksi")
+                st.caption(f"📌 Threshold optimal: {threshold}")
+                show_prediction(pred, proba)
+            except Exception as e:
+                st.error(f"Error prediksi: {e}")
 
     with tab2:
         st.subheader("📊 Informasi Model RF")
         col1, col2 = st.columns(2)
+
         with col1:
             st.markdown("### ⚙️ Hyperparameter Terbaik")
             st.dataframe(pd.DataFrame(
                 models['rf']['params'].items(),
                 columns=['Parameter', 'Value']
             ), use_container_width=True)
+
         with col2:
             st.markdown("### 📈 Performa")
             st.dataframe(pd.DataFrame({
-                'Metrik' : ['ROC-AUC','Macro F1','F1 Class 1',
-                            'Recall Class 1','Threshold','Total Fitur'],
-                'Nilai'  : ['0.7986','0.7348','0.62','0.73','0.46','25']
+                'Metrik' : ['ROC-AUC', 'Macro F1', 'F1 Churn',
+                            'Recall Churn', 'Threshold', 'Total Fitur'],
+                'Nilai'  : ['0.8357', '0.7350', '0.59',
+                            '0.6791', '0.56', '28']
             }), use_container_width=True)
 
         st.markdown("### 🔧 Teknik yang Digunakan")
         c1, c2, c3 = st.columns(3)
-        c1.info("**Oversampling**\nSMOTE")
-        c2.info("**Feature Engineering**\n8 fitur baru")
-        c3.info("**Tuning**\nOptuna 50 trials")
+        c1.info("**Oversampling**\nSMOTE untuk handle\nimbalance 73:27")
+        c2.info("**Feature Engineering**\n5 fitur baru dari\ndomain knowledge Telco")
+        c3.info("**Tuning**\nOptuna TPE Sampler\n50 trials")
 
     with tab3:
         st.markdown("""
         ### Cara Menggunakan
-        1. Isi semua input di tab Prediksi
-        2. Klik tombol **Prediksi**
-        3. Lihat hasil dan probabilitasnya
+        1. Isi semua input data pelanggan di tab **Prediksi**
+        2. Klik tombol **Prediksi Sekarang**
+        3. Lihat hasil prediksi dan probabilitasnya
 
-        | Probabilitas Pindah | Interpretasi |
+        ### Interpretasi Hasil
+        | Probabilitas Churn | Interpretasi |
         |---|---|
-        | 0% - 30% | Sangat likely bertahan |
-        | 30% - 50% | Cenderung bertahan |
-        | 50% - 70% | Cenderung pindah |
-        | 70% - 100% | Sangat likely pindah |
-        """)
+        | 0% - 30% | Pelanggan sangat likely bertahan |
+        | 30% - 56% | Pelanggan cenderung bertahan |
+        | >56% | Pelanggan diprediksi akan churn |
 
+        ### Tentang Dataset
+        - **Sumber**: Telco Customer Churn (IBM)
+        - **Total data**: 7.043 pelanggan
+        - **Target**: Prediksi churn pelanggan
+        - **Imbalance**: 73% No Churn, 27% Churn
+        """)
 
 # ══════════════════════════════════════════════════════════════
 #  PAGE: KNN
 # ══════════════════════════════════════════════════════════════
 elif "KNN" in page:
-    st.title("🔵 KNN — HR Job Change Prediction")
+    st.title("🔵 KNN — Telco Customer Churn")
     st.markdown("---")
 
     if models['knn'] is None:
-        st.error("❌ Model KNN tidak ditemukan di folder models/")
+        st.warning("⚠️ Model KNN belum tersedia. Teman perlu retrain dengan dataset Telco.")
     else:
-        tab1, tab2, tab3 = st.tabs(["🔮 Prediksi", "📊 Model Info", "📋 Panduan"])
+        tab1, tab2 = st.tabs(["🔮 Prediksi", "📊 Model Info"])
 
         with tab1:
-            st.subheader("Input Data Kandidat")
+            st.subheader("Input Data Pelanggan")
             input_data = input_form()
             st.markdown("---")
 
             if st.button("🔮 Prediksi", use_container_width=True, type="primary"):
-                X_input = preprocess_knn(input_data)
-                pred    = models['knn']['model'].predict(X_input)[0]
-                proba   = models['knn']['model'].predict_proba(X_input)[0]
-                st.markdown("---")
-                st.subheader("📊 Hasil Prediksi")
-                show_prediction(pred, proba)
+                try:
+                    preprocessor = models['knn']['preprocessor']
+                    X_input = preprocessor.transform(pd.DataFrame([input_data]))
+                    proba   = models['knn']['model'].predict_proba(X_input)[0]
+                    pred    = models['knn']['model'].predict(X_input)[0]
+                    st.markdown("---")
+                    show_prediction(pred, proba)
+                except Exception as e:
+                    st.error(f"Error: {e}")
 
         with tab2:
-            st.subheader("📊 Informasi Model KNN")
+            meta = models['knn']['metadata']
             col1, col2 = st.columns(2)
             with col1:
-                st.markdown("### ⚙️ Hyperparameter Terbaik")
+                st.markdown("### ⚙️ Hyperparameter")
                 st.dataframe(pd.DataFrame(
                     models['knn']['params'].items(),
                     columns=['Parameter', 'Value']
                 ), use_container_width=True)
             with col2:
-                meta = models['knn']['metadata']
                 st.markdown("### 📈 Performa")
                 st.dataframe(pd.DataFrame({
                     'Metrik': ['ROC-AUC', 'Macro F1', 'Total Fitur'],
                     'Nilai' : [meta['auc'], meta['macro_f1'], meta['n_features']]
                 }), use_container_width=True)
-
-        with tab3:
-            st.markdown("""
-            ### Cara Menggunakan
-            1. Isi semua input di tab Prediksi
-            2. Klik tombol **Prediksi**
-            3. Lihat hasil dan probabilitasnya
-            """)
-
 
 # ══════════════════════════════════════════════════════════════
 #  PAGE: COMING SOON
@@ -415,3 +395,9 @@ elif "KNN" in page:
 else:
     st.title("🚧 Coming Soon")
     st.info("Halaman ini akan diisi oleh anggota kelompok lain.")
+    st.markdown("""
+    ### Yang perlu disiapkan:
+    - Simpan model ke folder `models/` dengan nama yang jelas
+    - Tambahkan blok `elif` baru di `app.py`
+    - Push ke branch masing-masing
+    """)
