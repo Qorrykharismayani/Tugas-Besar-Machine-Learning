@@ -55,7 +55,7 @@ def load_all_models():
         st.error(f"RF Error: {e}")
         models['rf'] = None
 
-    # KNN (teman 1)
+    # KNN 
     try:
         models['knn'] = {
             'model'       : joblib.load('models/knn_model.pkl'),
@@ -66,15 +66,18 @@ def load_all_models():
     except:
         models['knn'] = None
 
-    # Model 3 (teman 2) — uncomment setelah file tersedia
-    # try:
-    #     models['dt'] = {
-    #         'model'   : joblib.load('models/decision_tree_model.pkl'),
-    #         'metadata': joblib.load('models/dt_metadata.pkl'),
-    #         'params'  : json.load(open('models/best_params_dt.json')),
-    #     }
-    # except:
-    #     models['dt'] = None
+    # Decision Tree
+    try:
+        models['dt'] = {
+            'model': joblib.load('models/dt_model.pkl'),
+            'preprocessor': joblib.load('models/dt_preprocessor.pkl'),
+            'features': joblib.load('models/dt_selected_features.pkl'),
+            'metadata': joblib.load('models/dt_metadata.pkl'),
+            'params': json.load(open('models/best_params_dt.json'))
+        }
+    except Exception as e:
+        print(f"Error loading DT: {e}")
+        models['dt'] = None
 
     # Model 4 (teman 3) — uncomment setelah file tersedia
     # try:
@@ -249,7 +252,7 @@ with st.sidebar:
     page = st.selectbox("📌 Pilih Model", [
         "🌲 Random Forest",
         "🔵 KNN",
-        "🌳 Model 3 (Coming Soon)",
+        "🌳 Decision Tree",
         "🔥 Model 4 (Coming Soon)",
     ])
 
@@ -267,6 +270,13 @@ with st.sidebar:
         st.markdown("### 📊 Info Model KNN")
         st.metric("ROC-AUC",  f"{meta['auc']:.4f}")
         st.metric("Macro F1", f"{meta['macro_f1']}")
+        st.metric("Features", f"{meta['n_features']}")
+    
+    elif "Decision Tree" in page and models['dt']:
+        meta = models['dt']['metadata']
+        st.markdown("### 📊 Info Model Decision Tree")
+        st.metric("ROC-AUC",  f"{meta['auc']:.4f}")
+        st.metric("Macro F1", f"{meta['macro_f1']:.4f}")
         st.metric("Features", f"{meta['n_features']}")
 
 # ══════════════════════════════════════════════════════════════
@@ -388,6 +398,51 @@ elif "KNN" in page:
                     'Metrik': ['ROC-AUC', 'Macro F1', 'Total Fitur'],
                     'Nilai' : [meta['auc'], meta['macro_f1'], meta['n_features']]
                 }), use_container_width=True)
+
+# ══════════════════════════════════════════════════════════════
+#  PAGE: DECISION TREE
+# ══════════════════════════════════════════════════════════════
+elif "Decision Tree" in page:
+    st.title("🌳 Decision Tree — Telco Customer Churn")
+    st.markdown("---")
+
+    if models['dt'] is None:
+        st.warning("⚠️ Model DT belum tersedia. Pastikan file model sudah ada di folder models/")
+    else:
+        tab1, tab2 = st.tabs(["🔮 Prediksi", "📊 Model Info"])
+
+        with tab1:
+            st.subheader("Input Data Pelanggan")
+            input_data = input_form()
+            st.markdown("---")
+
+            if st.button("🔮 Prediksi", use_container_width=True, type="primary"):
+                try:
+                    preprocessor = models['dt']['preprocessor']
+                    # Ubah input ke dataframe lalu transform
+                    X_input = preprocessor.transform(pd.DataFrame([input_data]))
+                    proba   = models['dt']['model'].predict_proba(X_input)[0]
+                    pred    = models['dt']['model'].predict(X_input)[0]
+                    st.markdown("---")
+                    show_prediction(pred, proba)
+                except Exception as e:
+                    st.error(f"Error: {e}")
+
+        with tab2:
+            meta = models['dt']['metadata']
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("### ⚙️ Hyperparameter")
+                st.dataframe(pd.DataFrame(
+                    models['dt']['params'].items(),
+                    columns=['Parameter', 'Value']
+                ), use_container_width=True)
+            with col2:
+                st.markdown("### 📈 Performa")
+                st.dataframe(pd.DataFrame({
+                    'Metrik': ['ROC-AUC', 'Macro F1', 'Total Fitur'],
+                    'Nilai' : [meta['auc'], meta['macro_f1'], meta['n_features']]
+                }), use_container_width=True)         
 
 # ══════════════════════════════════════════════════════════════
 #  PAGE: COMING SOON
