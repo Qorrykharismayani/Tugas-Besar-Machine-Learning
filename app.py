@@ -61,7 +61,7 @@ def load_all_models():
             'model'       : joblib.load('models/knn_model.pkl'),
             'preprocessor': joblib.load('models/knn_preprocessor.pkl'),
             'metadata'    : joblib.load('models/knn_metadata.pkl'),
-            'params'      : json.load(open('models/best_params_knn_telco.json')),
+            'params'      : json.load(open('models/best_params_knn.json')),
         }
     except:
         models['knn'] = None
