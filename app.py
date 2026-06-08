@@ -44,7 +44,7 @@ def load_all_models():
     # Random Forest
     try:
         models['rf'] = {
-            'model'    : joblib.load('models/random_forest_model.pkl'),
+            'model'    : joblib.load('models/rf_model.pkl'),
             'features' : joblib.load('models/selected_features.pkl'),
             'metadata' : joblib.load('models/model_metadata.pkl'),
             'params'   : json.load(open('models/best_params_rf.json')),
@@ -55,13 +55,13 @@ def load_all_models():
         st.error(f"RF Error: {e}")
         models['rf'] = None
 
-    # KNN 
+    # KNN
     try:
         models['knn'] = {
             'model'       : joblib.load('models/knn_model.pkl'),
             'preprocessor': joblib.load('models/knn_preprocessor.pkl'),
             'metadata'    : joblib.load('models/knn_metadata.pkl'),
-            'params'      : json.load(open('models/best_params_knn.json')),
+            'params'      : json.load(open('models/best_params_knn_telco.json')),
         }
     except:
         models['knn'] = None
@@ -69,25 +69,28 @@ def load_all_models():
     # Decision Tree
     try:
         models['dt'] = {
-            'model': joblib.load('models/dt_model.pkl'),
+            'model'       : joblib.load('models/dt_model.pkl'),
             'preprocessor': joblib.load('models/dt_preprocessor.pkl'),
-            'features': joblib.load('models/dt_selected_features.pkl'),
-            'metadata': joblib.load('models/dt_metadata.pkl'),
-            'params': json.load(open('models/best_params_dt.json'))
+            'features'    : joblib.load('models/dt_selected_features.pkl'),
+            'metadata'    : joblib.load('models/dt_metadata.pkl'),
+            'params'      : json.load(open('models/best_params_dt.json'))
         }
     except Exception as e:
         print(f"Error loading DT: {e}")
         models['dt'] = None
 
-    # Model 4 (teman 3) — uncomment setelah file tersedia
-    # try:
-    #     models['svm'] = {
-    #         'model'   : joblib.load('models/svm_model.pkl'),
-    #         'metadata': joblib.load('models/svm_metadata.pkl'),
-    #         'params'  : json.load(open('models/best_params_svm.json')),
-    #     }
-    # except:
-    #     models['svm'] = None
+    # SVM
+    try:
+        models['svm'] = {
+            'model'   : joblib.load('models/svm_model.pkl'),
+            'scaler'  : joblib.load('models/svm_scaler.pkl'),
+            'features': joblib.load('models/svm_feature_names.pkl'),
+            'metadata': joblib.load('models/svm_model_metadata.pkl'),
+            'params'  : json.load(open('models/best_params_svm.json')),
+        }
+    except Exception as e:
+        st.error(f"SVM Error: {e}")
+        models['svm'] = None
 
     return models
 
@@ -109,15 +112,15 @@ def input_form():
 
     with col2:
         st.markdown("**📞 Layanan**")
-        phone_service   = st.selectbox("Phone Service", ['Yes', 'No'])
-        multiple_lines  = st.selectbox("Multiple Lines", ['No', 'Yes', 'No phone service'])
-        internet_service= st.selectbox("Internet Service", ['DSL', 'Fiber optic', 'No'])
-        online_security = st.selectbox("Online Security", ['No', 'Yes', 'No internet service'])
-        online_backup   = st.selectbox("Online Backup", ['Yes', 'No', 'No internet service'])
-        device_protection=st.selectbox("Device Protection", ['No', 'Yes', 'No internet service'])
-        tech_support    = st.selectbox("Tech Support", ['No', 'Yes', 'No internet service'])
-        streaming_tv    = st.selectbox("Streaming TV", ['No', 'Yes', 'No internet service'])
-        streaming_movies= st.selectbox("Streaming Movies", ['No', 'Yes', 'No internet service'])
+        phone_service    = st.selectbox("Phone Service", ['Yes', 'No'])
+        multiple_lines   = st.selectbox("Multiple Lines", ['No', 'Yes', 'No phone service'])
+        internet_service = st.selectbox("Internet Service", ['DSL', 'Fiber optic', 'No'])
+        online_security  = st.selectbox("Online Security", ['No', 'Yes', 'No internet service'])
+        online_backup    = st.selectbox("Online Backup", ['Yes', 'No', 'No internet service'])
+        device_protection= st.selectbox("Device Protection", ['No', 'Yes', 'No internet service'])
+        tech_support     = st.selectbox("Tech Support", ['No', 'Yes', 'No internet service'])
+        streaming_tv     = st.selectbox("Streaming TV", ['No', 'Yes', 'No internet service'])
+        streaming_movies = st.selectbox("Streaming Movies", ['No', 'Yes', 'No internet service'])
 
     with col3:
         st.markdown("**💳 Billing**")
@@ -217,6 +220,29 @@ def preprocess_rf(data: dict) -> pd.DataFrame:
     return df[models['rf']['features']]
 
 # ══════════════════════════════════════════════════════════════
+#  PREPROCESSING SVM
+# ══════════════════════════════════════════════════════════════
+def preprocess_svm(data: dict) -> np.ndarray:
+    df = pd.DataFrame([data])
+
+    # 1. Handle TotalCharges
+    df['TotalCharges'] = pd.to_numeric(df['TotalCharges'], errors='coerce')
+    df['TotalCharges'] = df['TotalCharges'].fillna(df['TotalCharges'].median())
+
+    # 2. One-Hot Encoding
+    df_encoded = pd.get_dummies(df, drop_first=True)
+
+    # 3. Selaraskan kolom dengan feature names saat training
+    feature_names = models['svm']['features']
+    df_encoded = df_encoded.reindex(columns=feature_names, fill_value=0)
+
+    # 4. Scaling
+    scaler = models['svm']['scaler']
+    X_scaled = scaler.transform(df_encoded)
+
+    return X_scaled
+
+# ══════════════════════════════════════════════════════════════
 #  SHOW PREDICTION
 # ══════════════════════════════════════════════════════════════
 def show_prediction(pred, proba, label_pos='Churn', label_neg='No Churn'):
@@ -253,7 +279,7 @@ with st.sidebar:
         "🌲 Random Forest",
         "🔵 KNN",
         "🌳 Decision Tree",
-        "🔥 Model 4 (Coming Soon)",
+        "⚡ SVM",
     ])
 
     st.markdown("---")
@@ -271,12 +297,20 @@ with st.sidebar:
         st.metric("ROC-AUC",  f"{meta['auc']:.4f}")
         st.metric("Macro F1", f"{meta['macro_f1']}")
         st.metric("Features", f"{meta['n_features']}")
-    
+
     elif "Decision Tree" in page and models['dt']:
         meta = models['dt']['metadata']
         st.markdown("### 📊 Info Model Decision Tree")
         st.metric("ROC-AUC",  f"{meta['auc']:.4f}")
         st.metric("Macro F1", f"{meta['macro_f1']:.4f}")
+        st.metric("Features", f"{meta['n_features']}")
+
+    elif "SVM" in page and models['svm']:
+        meta = models['svm']['metadata']
+        st.markdown("### 📊 Info Model SVM")
+        st.metric("ROC-AUC",  f"{meta['auc']:.4f}")
+        st.metric("Macro F1", f"{meta['macro_f1']:.4f}")
+        st.metric("Threshold",f"{meta['threshold']}")
         st.metric("Features", f"{meta['n_features']}")
 
 # ══════════════════════════════════════════════════════════════
@@ -419,7 +453,6 @@ elif "Decision Tree" in page:
             if st.button("🔮 Prediksi", use_container_width=True, type="primary"):
                 try:
                     preprocessor = models['dt']['preprocessor']
-                    # Ubah input ke dataframe lalu transform
                     X_input = preprocessor.transform(pd.DataFrame([input_data]))
                     proba   = models['dt']['model'].predict_proba(X_input)[0]
                     pred    = models['dt']['model'].predict(X_input)[0]
@@ -442,17 +475,88 @@ elif "Decision Tree" in page:
                 st.dataframe(pd.DataFrame({
                     'Metrik': ['ROC-AUC', 'Macro F1', 'Total Fitur'],
                     'Nilai' : [meta['auc'], meta['macro_f1'], meta['n_features']]
-                }), use_container_width=True)         
+                }), use_container_width=True)
 
 # ══════════════════════════════════════════════════════════════
-#  PAGE: COMING SOON
+#  PAGE: SVM
 # ══════════════════════════════════════════════════════════════
-else:
-    st.title("🚧 Coming Soon")
-    st.info("Halaman ini akan diisi oleh anggota kelompok lain.")
-    st.markdown("""
-    ### Yang perlu disiapkan:
-    - Simpan model ke folder `models/` dengan nama yang jelas
-    - Tambahkan blok `elif` baru di `app.py`
-    - Push ke branch masing-masing
-    """)
+elif "SVM" in page:
+    st.title("⚡ SVM — Telco Customer Churn")
+    st.markdown("Prediksi apakah pelanggan akan **berhenti berlangganan (churn)** atau tidak.")
+    st.markdown("---")
+
+    if models['svm'] is None:
+        st.warning("⚠️ Model SVM belum tersedia. Pastikan file model sudah ada di folder models/")
+    else:
+        tab1, tab2, tab3 = st.tabs(["🔮 Prediksi", "📊 Model Info", "📋 Panduan"])
+
+        with tab1:
+            st.subheader("Input Data Pelanggan")
+            input_data = input_form()
+            st.markdown("---")
+
+            if st.button("🔮 Prediksi Sekarang", use_container_width=True, type="primary"):
+                try:
+                    X_input   = preprocess_svm(input_data)
+                    proba     = models['svm']['model'].predict_proba(X_input)[0]
+                    threshold = models['svm']['metadata'].get('threshold', 0.63)
+                    pred      = int(proba[1] >= threshold)
+
+                    st.markdown("---")
+                    st.subheader("📊 Hasil Prediksi")
+                    st.caption(f"📌 Threshold optimal: {threshold}")
+                    show_prediction(pred, proba)
+                except Exception as e:
+                    st.error(f"Error prediksi: {e}")
+
+        with tab2:
+            st.subheader("📊 Informasi Model SVM")
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.markdown("### ⚙️ Hyperparameter Terbaik")
+                st.dataframe(pd.DataFrame(
+                    models['svm']['params'].items(),
+                    columns=['Parameter', 'Value']
+                ), use_container_width=True)
+
+            with col2:
+                st.markdown("### 📈 Performa")
+                meta = models['svm']['metadata']
+                st.dataframe(pd.DataFrame({
+                    'Metrik': ['ROC-AUC', 'Macro F1', 'Threshold', 'Total Fitur'],
+                    'Nilai' : [
+                        meta['auc'],
+                        meta['macro_f1'],
+                        meta['threshold'],
+                        meta['n_features']
+                    ]
+                }), use_container_width=True)
+
+            st.markdown("### 🔧 Teknik yang Digunakan")
+            c1, c2, c3 = st.columns(3)
+            c1.info("**Oversampling**\nSMOTE untuk handle\nimbalance 73:27")
+            c2.info("**Kernel**\nRBF / Linear kernel\nvia GridSearchCV")
+            c3.info("**Scaling**\nStandardScaler\n(wajib untuk SVM)")
+
+        with tab3:
+            st.markdown("""
+            ### Cara Menggunakan
+            1. Isi semua input data pelanggan di tab **Prediksi**
+            2. Klik tombol **Prediksi Sekarang**
+            3. Lihat hasil prediksi dan probabilitasnya
+
+            ### Interpretasi Hasil
+            | Probabilitas Churn | Interpretasi |
+            |---|---|
+            | 0% - 30% | Pelanggan sangat likely bertahan |
+            | 30% - 63% | Pelanggan cenderung bertahan |
+            | >63% | Pelanggan diprediksi akan churn |
+
+            ### Tentang Model SVM
+            - **Algoritma**: Support Vector Machine (SVC)
+            - **Kernel terbaik**: Hasil GridSearchCV (Linear / RBF)
+            - **Handling imbalance**: SMOTE sebelum training
+            - **Preprocessing**: One-Hot Encoding + StandardScaler
+            - **AUC**: 0.8164 | **Macro F1**: 0.7274
+            """)
