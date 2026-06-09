@@ -204,7 +204,7 @@ def load_all_models():
         models['rf'] = {
             'model'   : joblib.load('models/rf_model.pkl'),
             'features': joblib.load('models/rf_selected_features.pkl'),
-            'metadata': joblib.load('models/rf_metadata.pkl'),
+            'metadata': joblib.load('models/rf_model_metadata.pkl'),
             'params'  : json.load(open('models/best_params_rf.json')),
             'scaler'  : joblib.load('models/rf_scaler.pkl'),
             'le_dict' : joblib.load('models/rf_label_encoders.pkl'),
@@ -436,8 +436,8 @@ def preprocess_svm(data):
 # ══════════════════════════════════════════════════════════════
 with st.sidebar:
     st.markdown("""
-    <div style='text-align:center; padding: 20px 0 10px 0;'>
-        <div style='font-size: 2.5rem;'>📡</div>
+    <div style='text-align:center; padding: 0px 0 10px 0;'>
+        <div style='font-size: 3.5rem;'>📡</div>
         <div style='font-size: 1.2rem; font-weight: 700; color: white; margin-top: 8px;'>Telco Churn</div>
         <div style='font-size: 0.75rem; color: #8888aa; margin-top: 4px;'>Prediction Dashboard</div>
     </div>
