@@ -2,81 +2,104 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
-import json
-import matplotlib.pyplot as plt
+import altair as alt
+import time
 
 st.set_page_config(
-    page_title="Predictive Maintenance",
-    page_icon="🛠️",
+    page_title="Predictive Maintenance AI",
+    page_icon="⚙️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # ══════════════════════════════════════════════════════════════
-#  STYLE
+#  CUSTOM CSS UTILITIES
 # ══════════════════════════════════════════════════════════════
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap');
+/* Modern Font & Base */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
-#MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
 
-.stApp { background: radial-gradient(circle at 20% 0%, #142033 0%, #0b0f1a 55%, #07090f 100%); }
-
-[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0a0e18 0%, #111a2b 100%);
-    border-right: 1px solid #1f2c44;
+/* Gradients and Backgrounds */
+.stApp {
+    background: radial-gradient(circle at top left, #121c2d 0%, #080c14 100%);
+    color: #e2e8f0;
 }
-[data-testid="stMetric"] {
-    background: linear-gradient(135deg, #131d30 0%, #18233b 100%);
-    padding: 16px 20px; border-radius: 14px; border: 1px solid #243352;
-    transition: transform 0.2s, border-color 0.2s;
-}
-[data-testid="stMetric"]:hover { transform: translateY(-2px); border-color: #ff8c42; }
-[data-testid="stMetricLabel"] { color: #7d8aa3 !important; font-size: 0.72rem !important; text-transform: uppercase; letter-spacing: 0.06em; }
-[data-testid="stMetricValue"] { color: #ffffff !important; font-size: 1.35rem !important; font-weight: 800 !important; font-family:'JetBrains Mono',monospace; }
 
-[data-testid="stButton"] > button {
-    background: linear-gradient(135deg, #ff8c42 0%, #ff5e62 100%);
-    color: white; border: none; border-radius: 12px; font-weight: 700;
-    font-size: 1rem; padding: 0.65rem 1.5rem; transition: all 0.3s;
-    box-shadow: 0 4px 18px rgba(255,94,98,0.35); letter-spacing: 0.02em;
+/* Card Styling */
+div[data-testid="stMetric"] {
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid rgba(148, 163, 184, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+    padding: 1rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    transition: transform 0.2s ease, border-color 0.2s ease;
 }
-[data-testid="stButton"] > button:hover { transform: translateY(-2px); box-shadow: 0 8px 26px rgba(255,94,98,0.55); }
-
-.stSelectbox > div > div, .stNumberInput > div > div, .stSlider {
-    background: #131d30 !important; border-radius: 8px !important; color: white !important;
+div[data-testid="stMetric"]:hover {
+    transform: translateY(-2px);
+    border-color: rgba(96, 165, 250, 0.5);
 }
-.section-hdr { font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.12em; color:#ff8c42; margin-bottom:10px; padding-bottom:5px; border-bottom:1px solid #1f2c44; }
 
+/* Metric Labels */
+div[data-testid="stMetricLabel"] > div {
+    color: #94a3b8 !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Headings */
+h1, h2, h3 { color: #f8fafc; font-weight: 700; }
+.hero-title { font-size: 2.5rem; font-weight: 800; background: linear-gradient(to right, #60a5fa, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1.2; margin-bottom: 0.5rem;}
+.hero-subtitle { color: #94a3b8; font-size: 1.1rem; max-width: 800px; margin-bottom: 2rem;}
+
+/* Status and Results */
 .result-fail {
-    background: linear-gradient(135deg, #2d1212, #3d1818);
-    border: 1px solid #ff4757; border-left: 5px solid #ff4757;
-    padding: 22px 26px; border-radius: 14px; text-align: center;
-    font-size: 1.12em; font-weight: 600; color: #ff7b7b; margin-top: 16px;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-left: 4px solid #ef4444;
+    padding: 1rem 1.5rem; border-radius: 8px;
+    color: #fca5a5; font-weight: 600; margin: 1rem 0;
 }
 .result-ok {
-    background: linear-gradient(135deg, #11271b, #173820);
-    border: 1px solid #2ed573; border-left: 5px solid #2ed573;
-    padding: 22px 26px; border-radius: 14px; text-align: center;
-    font-size: 1.12em; font-weight: 600; color: #7bed9f; margin-top: 16px;
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    border-left: 4px solid #22c55e;
+    padding: 1rem 1.5rem; border-radius: 8px;
+    color: #86efac; font-weight: 600; margin: 1rem 0;
 }
-hr { border-color: #1f2c44; margin: 1.4rem 0; }
-.stTabs [data-baseweb="tab"] { color:#7d8aa3; }
-.stTabs [aria-selected="true"] { color:#ff8c42 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# ══════════════════════════════════════════════════════════════
-#  PALETTE (charts)
-# ══════════════════════════════════════════════════════════════
-BG, BG2, GRID = '#131d30', '#18233b', '#243352'
-ORG, RED, GRN, YLW, CYAN = '#ff8c42', '#ff4757', '#2ed573', '#f9ca24', '#00b4d8'
-TXT, TXTS = '#cdd6e6', '#7d8aa3'
 
-# Kolom asli dataset (urutan penting untuk DT/KNN/SVM)
+# ══════════════════════════════════════════════════════════════
+#  DATA METRIK & PARAMETER
+# ══════════════════════════════════════════════════════════════
 RAW_COLS = ['Type', 'Air temperature [K]', 'Process temperature [K]',
             'Rotational speed [rpm]', 'Torque [Nm]', 'Tool wear [min]']
+
+PERF_DATA = {
+    'rf':  {'name': 'Random Forest', 'color': '#f97316', 'icon': '🌲',
+            'accuracy': None, 'precision': None, 'recall': 0.8382, 'f1_fail': None,
+            'auc': 0.9847, 'macro_f1': 0.9163, 'threshold': 0.71, 'sampling': 'SMOTE',
+            'params': {'n_estimators': 427, 'max_depth': 12, 'min_samples_split': 2,
+                       'min_samples_leaf': 2, 'max_features': 'log2', 'class_weight': 'balanced'}},
+    'dt':  {'name': 'Decision Tree', 'color': '#22c55e', 'icon': '🌳',
+            'accuracy': 0.9855, 'precision': 0.8000, 'recall': 0.7647, 'f1_fail': 0.7820,
+            'auc': None, 'macro_f1': None, 'threshold': 0.5, 'sampling': 'Asli (tanpa SMOTE)',
+            'params': {'criterion': 'gini', 'max_depth': 10, 'min_samples_leaf': 4, 'min_samples_split': 2}},
+    'knn': {'name': 'K-Nearest Neighbors', 'color': '#3b82f6', 'icon': '🔵',
+            'accuracy': 0.9740, 'precision': 0.8333, 'recall': 0.2941, 'f1_fail': 0.4348,
+            'auc': None, 'macro_f1': None, 'threshold': 0.5, 'sampling': 'Asli (tanpa SMOTE)',
+            'params': {'n_neighbors': 5}},
+    'svm': {'name': 'Support Vector Machine', 'color': '#eab308', 'icon': '⚡',
+            'accuracy': 0.9790, 'precision': 0.7708, 'recall': 0.5441, 'f1_fail': 0.6379,
+            'auc': None, 'macro_f1': None, 'threshold': 0.5, 'sampling': 'Asli (tanpa SMOTE)',
+            'params': {'kernel': 'rbf', 'C': 10}},
+}
 
 # ══════════════════════════════════════════════════════════════
 #  LOAD MODELS
@@ -84,526 +107,349 @@ RAW_COLS = ['Type', 'Air temperature [K]', 'Process temperature [K]',
 @st.cache_resource
 def load_all_models():
     m = {}
-
     def try_load(loaders):
-        try:
-            return {k: fn() for k, fn in loaders.items()}
-        except Exception:
-            return None
+        try: return {k: fn() for k, fn in loaders.items()}
+        except Exception: return None
 
     m['rf'] = try_load({
         'model'   : lambda: joblib.load('models/rf_model.pkl'),
         'features': lambda: joblib.load('models/rf_selected_features.pkl'),
-        'metadata': lambda: joblib.load('models/rf_model_metadata.pkl'),
-        'params'  : lambda: json.load(open('models/best_params_rf.json')),
         'scaler'  : lambda: joblib.load('models/rf_scaler.pkl'),
         'le_dict' : lambda: joblib.load('models/rf_label_encoders.pkl'),
     })
 
-    # DT / KNN / SVM: muat fleksibel — file apa pun yang ada, simpan apa adanya
-    def load_generic(prefix, candidates):
+    def load_generic(candidates):
         out = {}
         for key, fnames in candidates.items():
             for fn in fnames:
                 try:
-                    if fn.endswith('.json'):
-                        out[key] = json.load(open(f'models/{fn}'))
-                    else:
-                        out[key] = joblib.load(f'models/{fn}')
+                    out[key] = joblib.load(f'models/{fn}')
                     break
-                except Exception:
-                    continue
+                except Exception: continue
         return out if 'model' in out else None
 
-    m['dt'] = load_generic('dt', {
+    m['dt'] = load_generic({
         'model'       : ['dt_model_maintenance.pkl'],
-        'preprocessor': ['preprocessor_maintenance_dt.pkl'],
-        'features'    : ['selected_features_maintenance_dt.pkl'],
+        'preprocessor': ['dt_preprocessor_maintenance.pkl'],
+        'features'    : ['dt_selected_features_maintenance.pkl'],
     })
-    m['knn'] = load_generic('knn', {
+    m['knn'] = load_generic({
         'model'       : ['knn_model_maintenance.pkl'],
-        'preprocessor': ['preprocessor_maintenance.pkl'],
-        'features'    : ['selected_features_maintenance.pkl'],
+        'preprocessor': ['knn_preprocessor_maintenance.pkl'],
+        'features'    : ['knn_selected_features_maintenance.pkl'],
     })
-    m['svm'] = load_generic('svm', {
+    m['svm'] = load_generic({
         'model'       : ['svm_model_maintenance.pkl'],
-        'preprocessor': ['preprocessor_maintenance.pkl'],
-        'features'    : ['selected_features_maintenance.pkl'],
+        'preprocessor': ['svm_preprocessor_maintenance.pkl'],
+        'features'    : ['svm_selected_features_maintenance.pkl'],
     })
     return m
 
 models = load_all_models()
 
-def meta_get(key, field, default='—'):
-    """Ambil field metadata dengan aman (dict atau tidak ada)."""
-    try:
-        md = models[key].get('metadata', {})
-        if isinstance(md, dict):
-            return md.get(field, default)
-    except Exception:
-        pass
-    return default
+# ══════════════════════════════════════════════════════════════
+#  CHART HELPERS (ALTAIR)
+# ══════════════════════════════════════════════════════════════
+ORDER = ['rf', 'dt', 'knn', 'svm']
+
+def plot_metric_comparison_altair():
+    data = []
+    for k in ORDER:
+        data.append({'Model': PERF_DATA[k]['name'], 'Metric': 'Accuracy', 'Score': PERF_DATA[k].get('accuracy') or 0})
+        data.append({'Model': PERF_DATA[k]['name'], 'Metric': 'Recall (Failure)', 'Score': PERF_DATA[k].get('recall') or 0})
+        f1 = PERF_DATA[k].get('f1_fail') if PERF_DATA[k].get('f1_fail') is not None else PERF_DATA[k].get('macro_f1')
+        data.append({'Model': PERF_DATA[k]['name'], 'Metric': 'F1 (Failure)', 'Score': f1 or 0})
+    df = pd.DataFrame(data)
+    
+    chart = alt.Chart(df).mark_bar().encode(
+        x=alt.X('Metric:N', title='', axis=alt.Axis(labels=False, ticks=False)),
+        y=alt.Y('Score:Q', title='Score', scale=alt.Scale(domain=[0, 1.05])),
+        color=alt.Color('Metric:N', scale=alt.Scale(domain=['Accuracy', 'Recall (Failure)', 'F1 (Failure)'], range=['#f97316', '#3b82f6', '#a855f7']), legend=alt.Legend(title="Metrik", orient='bottom')),
+        column=alt.Column('Model:N', header=alt.Header(labelOrient='bottom', titleOrient='top', title='Model', labelColor='white', titleColor='#94a3b8')),
+        tooltip=['Model', 'Metric', 'Score']
+    ).properties(width=120, height=300).configure_view(strokeOpacity=0).configure_axis(grid=True, gridColor='#1e293b', domainColor='#1e293b', labelColor='#94a3b8', titleColor='#94a3b8').configure_legend(labelColor='#e2e8f0', titleColor='#94a3b8')
+    return chart
+
+def plot_recall_focus_altair():
+    data = [{'Model': PERF_DATA[k]['name'], 'Recall': PERF_DATA[k]['recall'], 'Color': PERF_DATA[k]['color']} for k in ORDER]
+    df = pd.DataFrame(data).sort_values('Recall', ascending=False)
+    
+    chart = alt.Chart(df).mark_bar().encode(
+        y=alt.Y('Model:N', sort='-x', title='', axis=alt.Axis(labelColor='#e2e8f0')),
+        x=alt.X('Recall:Q', title='Recall (Failure)', scale=alt.Scale(domain=[0, 1.0]), axis=alt.Axis(labelColor='#94a3b8', titleColor='#94a3b8')),
+        color=alt.Color('Color:N', scale=None),
+        tooltip=['Model', 'Recall']
+    ).properties(height=250, width=400).configure_view(strokeOpacity=0).configure_axis(grid=True, gridColor='#1e293b', domainColor='#1e293b')
+    return chart
 
 # ══════════════════════════════════════════════════════════════
-#  CHART HELPERS
+#  SIMULATION & PREDICTION
 # ══════════════════════════════════════════════════════════════
-def fig_defaults(fig, axes_list):
-    fig.patch.set_facecolor(BG)
-    for ax in axes_list:
-        ax.set_facecolor(BG)
-        ax.tick_params(colors=TXTS, labelsize=8)
-        for sp in ax.spines.values():
-            sp.set_color(GRID)
-        ax.title.set_color(TXT)
-        ax.xaxis.label.set_color(TXTS)
-        ax.yaxis.label.set_color(TXTS)
+SAMPLE_ROWS = {
+    'Normal (Sehat)': {'Type': 'L', 'Air temperature [K]': 298.1, 'Process temperature [K]': 308.6,
+                       'Rotational speed [rpm]': 1551, 'Torque [Nm]': 42.8, 'Tool wear [min]': 0},
+    'Berisiko Gagal (Tool Aus + Torsi Tinggi)': {'Type': 'H', 'Air temperature [K]': 302.3,
+                       'Process temperature [K]': 311.5, 'Rotational speed [rpm]': 1320,
+                       'Torque [Nm]': 64.5, 'Tool wear [min]': 215},
+}
 
-MODEL_ORDER = [('rf', 'Random\nForest', ORG), ('dt', 'Decision\nTree', GRN),
-               ('knn', 'KNN', CYAN), ('svm', 'SVM', YLW)]
+SIM_STEPS = {
+    'rf': [
+        ("Input Data Sensor", "Mengambil 6 nilai mentah: Type, suhu udara, suhu proses, rpm, torsi, tool wear."),
+        ("Encoding Kategorikal", "Kolom Type (L/M/H) diubah menjadi angka memakai LabelEncoder."),
+        ("Feature Engineering", "Membuat 3 fitur turunan: temp_diff (suhu selisih), power (torsi × rpm), strain (tool wear × torsi)."),
+        ("Scaling", "Seluruh 8 fitur numerik distandarkan (StandardScaler)."),
+        ("Voting Antar Pohon", "427 pohon keputusan memberikan prediksi, kemudian dirata-ratakan."),
+        ("Thresholding", "Menerapkan ambang probabilitas 0.71 (hasil optimasi SMOTE).")
+    ],
+    'dt': [
+        ("Input Data Sensor", "Mengambil 6 nilai mentah sensor."),
+        ("Preprocessing Data", "Imputasi median & StandardScaler (Numerik), One-Hot Encoding (Type)."),
+        ("Eksplorasi Aturan Pohon", "Data menelusuri cabang pohon berdasarkan aturan if-else (cth: torsi > 50)."),
+        ("Mencapai Node Daun", "Node terakhir menentukan klasifikasi akhir."),
+        ("Thresholding", "Menggunakan ambang probabilitas 0.50 (data asli).")
+    ],
+    'knn': [
+        ("Input Data Sensor", "Mengambil 6 nilai mentah sensor."),
+        ("Preprocessing Data", "Standardisasi sangat penting untuk mengukur jarak Euclid."),
+        ("Pengukuran Jarak", "Menghitung jarak ke seluruh data training."),
+        ("Pemilihan K-Terdekat", "Mengambil K=5 tetangga yang paling mirip dengan sampel."),
+        ("Thresholding", "Voting mayoritas kelas dengan ambang probabilitas 0.50.")
+    ],
+    'svm': [
+        ("Input Data Sensor", "Mengambil 6 nilai mentah sensor."),
+        ("Preprocessing Data", "Standardisasi fitur dan One-Hot Encoding (Type)."),
+        ("Proyeksi Kernel RBF", "Data dipetakan ke dimensi lebih tinggi (C=10) untuk mencari batas pisah."),
+        ("Kalkulasi Hyperplane", "Menghitung posisi titik terhadap margin keputusan maksimal."),
+        ("Thresholding", "Konversi jarak margin menjadi probabilitas (ambang 0.50).")
+    ],
+}
 
-# ── Angka estimasi DT/KNN/SVM (ganti dengan nilai asli dari notebook teman bila ada) ──
-# Format: (auc, macro_f1). RF tidak dipakai di sini karena baca metadata asli.
-EST = {'dt': (0.95, 0.88), 'knn': (0.94, 0.85), 'svm': (0.96, 0.89)}
-
-def get_metric(key, field, fallback):
-    """RF: baca metadata asli. DT/KNN/SVM: pakai EST (tidak ada metadata)."""
-    if key in EST:
-        return EST[key][0] if field == 'auc' else EST[key][1]
-    v = meta_get(key, field, None)
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return fallback
-
-def plot_model_comparison():
-    fallback = {'rf': (0.985, 0.916), 'dt': (0.95, 0.88), 'knn': (0.94, 0.85), 'svm': (0.96, 0.89)}
-    names, aucs, f1s, cols = [], [], [], []
-    for key, label, col in MODEL_ORDER:
-        names.append(label); cols.append(col)
-        if models.get(key):
-            aucs.append(get_metric(key, 'auc', fallback[key][0]))
-            f1s.append(get_metric(key, 'macro_f1', fallback[key][1]))
-        else:
-            aucs.append(fallback[key][0]); f1s.append(fallback[key][1])
-
-    x = np.arange(len(names)); w = 0.36
-    fig, ax = plt.subplots(figsize=(8, 4)); fig_defaults(fig, [ax])
-    b1 = ax.bar(x - w/2, aucs, w, label='ROC-AUC', color=ORG, zorder=3)
-    b2 = ax.bar(x + w/2, f1s, w, label='Macro F1', color=CYAN, zorder=3)
-    ax.set_xticks(x); ax.set_xticklabels(names, color=TXT, fontsize=9)
-    ax.set_ylim(0.5, 1.02); ax.set_ylabel('Score', color=TXTS)
-    ax.set_title('Perbandingan Performa Model', color=TXT, fontsize=11, fontweight='bold', pad=12)
-    ax.yaxis.grid(True, color=GRID, linewidth=0.5, zorder=0); ax.set_axisbelow(True)
-    for bars, c in [(b1, ORG), (b2, CYAN)]:
-        for b in bars:
-            ax.text(b.get_x()+b.get_width()/2, b.get_height()+0.006,
-                    f'{b.get_height():.3f}', ha='center', va='bottom', color=c, fontsize=7, fontweight='bold')
-    ax.legend(facecolor=BG2, edgecolor=GRID, labelcolor=TXT, fontsize=9)
-    plt.tight_layout(pad=1.5); return fig
-
-def plot_roc_curves():
-    fig, ax = plt.subplots(figsize=(6, 5)); fig_defaults(fig, [ax])
-    rng = np.random.default_rng(42)
-    def make_roc(auc):
-        fpr = np.linspace(0, 1, 100)
-        tpr = 1 - (1 - fpr)**((1/max(1-auc, 0.02))*0.8 + 0.2)
-        tpr = np.clip(tpr + rng.normal(0, 0.008, len(fpr)), 0, 1)
-        tpr[0], tpr[-1] = 0, 1
-        return fpr, np.sort(tpr)
-    fallback = {'rf': 0.985, 'dt': 0.95, 'knn': 0.94, 'svm': 0.96}
-    label_map = {'rf': 'Random Forest', 'dt': 'Decision Tree', 'knn': 'KNN', 'svm': 'SVM'}
-    for key, _, col in MODEL_ORDER:
-        auc = get_metric(key, 'auc', fallback[key]) if models.get(key) else fallback[key]
-        fpr, tpr = make_roc(auc)
-        ax.plot(fpr, tpr, color=col, linewidth=2, label=f'{label_map[key]} (AUC={auc:.3f})')
-    ax.plot([0, 1], [0, 1], '--', color=GRID, linewidth=1, label='Random (0.500)')
-    ax.set_xlabel('False Positive Rate'); ax.set_ylabel('True Positive Rate')
-    ax.set_title('ROC Curve — Semua Model', color=TXT, fontsize=11, fontweight='bold', pad=12)
-    ax.legend(facecolor=BG2, edgecolor=GRID, labelcolor=TXT, fontsize=8, loc='lower right')
-    ax.grid(True, color=GRID, linewidth=0.4)
-    plt.tight_layout(pad=1.5); return fig
-
-def plot_class_distribution():
-    fig, axes = plt.subplots(1, 2, figsize=(8, 3.5)); fig_defaults(fig, axes)
-    before = [9661, 339]   # ~96.6% : 3.4% (AI4I 2020)
-    after  = [9661, 9661]
-    labels = ['No Failure', 'Failure']; colors = [GRN, RED]
-    for ax, data, title in zip(axes, [before, after], ['Sebelum SMOTE', 'Sesudah SMOTE']):
-        bars = ax.bar(labels, data, color=colors, width=0.5, zorder=3)
-        ax.set_title(title, color=TXT, fontsize=10, fontweight='bold')
-        ax.yaxis.grid(True, color=GRID, linewidth=0.5, zorder=0); ax.set_axisbelow(True)
-        for b in bars:
-            ax.text(b.get_x()+b.get_width()/2, b.get_height()+120,
-                    f'{int(b.get_height()):,}', ha='center', color=TXT, fontsize=9, fontweight='bold')
-    fig.suptitle('Class Distribution — SMOTE Handling', color=TXT, fontsize=11, fontweight='bold', y=1.02)
-    plt.tight_layout(pad=1.5); return fig
-
-def plot_rf_feature_importance():
-    feats = ['power', 'strain', 'torque', 'tool_wear', 'rot_speed',
-             'temp_diff', 'process_temp', 'air_temp', 'Type']
-    fallback = [0.21, 0.18, 0.15, 0.13, 0.11, 0.09, 0.06, 0.04, 0.03]
-    try:
-        model = models['rf']['model']
-        names = models['rf']['features']
-        imp = list(model.feature_importances_)
-        pairs = sorted(zip(names, imp), key=lambda t: t[1], reverse=True)[:10]
-        feats = [p[0] for p in pairs]; fallback = [p[1] for p in pairs]
-    except Exception:
-        pass
-    fig, ax = plt.subplots(figsize=(8, 4.5)); fig_defaults(fig, [ax])
-    cols = [ORG if i < 3 else CYAN if i < 6 else '#a855f7' for i in range(len(feats))]
-    bars = ax.barh(feats[::-1], fallback[::-1], color=cols[::-1], height=0.62, zorder=3)
-    ax.xaxis.grid(True, color=GRID, linewidth=0.5, zorder=0); ax.set_axisbelow(True)
-    ax.set_xlabel('Importance'); ax.set_title('Feature Importance — Random Forest', color=TXT, fontsize=11, fontweight='bold', pad=12)
-    for b in bars:
-        ax.text(b.get_width()+0.003, b.get_y()+b.get_height()/2, f'{b.get_width():.3f}', va='center', color=TXT, fontsize=8)
-    plt.tight_layout(pad=1.5); return fig
-
-def plot_knn_k_curve():
-    rng = np.random.default_rng(7); k = np.arange(1, 31)
-    acc = 0.965 - 0.0008*(k-9)**2 + rng.normal(0, 0.003, len(k)); acc = np.clip(acc, 0.90, 0.98)
-    fig, ax = plt.subplots(figsize=(7, 3.5)); fig_defaults(fig, [ax])
-    ax.plot(k, acc, color=CYAN, linewidth=2.5, marker='o', markersize=4, zorder=3)
-    bk = k[np.argmax(acc)]
-    ax.axvline(bk, color=YLW, linestyle='--', linewidth=1.5, label=f'Best K = {bk}', zorder=4)
-    ax.fill_between(k, 0.90, acc, alpha=0.15, color=CYAN, zorder=2)
-    ax.set_xlabel('K Value'); ax.set_ylabel('Accuracy')
-    ax.set_title('K Value vs Accuracy — KNN', color=TXT, fontsize=11, fontweight='bold', pad=12)
-    ax.legend(facecolor=BG2, edgecolor=GRID, labelcolor=TXT, fontsize=9); ax.grid(True, color=GRID, linewidth=0.4)
-    plt.tight_layout(pad=1.5); return fig
-
-def plot_dt_depth_curve():
-    rng = np.random.default_rng(11); d = np.arange(2, 21)
-    train = 0.99 - 0.0002*(d-20)**2 + rng.normal(0, 0.004, len(d))
-    val = 0.96 - 0.0018*(d-7)**2 + rng.normal(0, 0.004, len(d))
-    train, val = np.clip(train, 0.85, 1.0), np.clip(val, 0.80, 0.97)
-    fig, ax = plt.subplots(figsize=(7, 3.5)); fig_defaults(fig, [ax])
-    ax.plot(d, train, color=ORG, linewidth=2, label='Train AUC', zorder=3)
-    ax.plot(d, val, color=GRN, linewidth=2, label='Val AUC', zorder=3)
-    bd = d[np.argmax(val)]
-    ax.axvline(bd, color=YLW, linestyle='--', linewidth=1.5, label=f'Best depth = {bd}', zorder=4)
-    ax.set_xlabel('Max Depth'); ax.set_ylabel('AUC')
-    ax.set_title('Depth vs AUC — Decision Tree', color=TXT, fontsize=11, fontweight='bold', pad=12)
-    ax.legend(facecolor=BG2, edgecolor=GRID, labelcolor=TXT, fontsize=9); ax.grid(True, color=GRID, linewidth=0.4)
-    plt.tight_layout(pad=1.5); return fig
-
-def plot_svm_kernel_comparison():
-    kernels = ['Linear', 'RBF', 'Polynomial', 'Sigmoid']; aucs = [0.93, 0.96, 0.94, 0.88]
-    cols = [ORG, RED, CYAN, TXTS]
-    fig, ax = plt.subplots(figsize=(7, 3.5)); fig_defaults(fig, [ax])
-    bars = ax.bar(kernels, aucs, color=cols, width=0.5, zorder=3)
-    ax.set_ylim(0.80, 1.0); ax.set_ylabel('ROC-AUC')
-    ax.set_title('Kernel Comparison — SVM', color=TXT, fontsize=11, fontweight='bold', pad=12)
-    ax.yaxis.grid(True, color=GRID, linewidth=0.5, zorder=0); ax.set_axisbelow(True)
-    for b in bars:
-        ax.text(b.get_x()+b.get_width()/2, b.get_height()+0.004, f'{b.get_height():.3f}', ha='center', color=TXT, fontsize=9, fontweight='bold')
-    ax.patches[1].set_edgecolor(YLW); ax.patches[1].set_linewidth(2)
-    plt.tight_layout(pad=1.5); return fig
-
-# ══════════════════════════════════════════════════════════════
-#  PREPROCESSING
-# ══════════════════════════════════════════════════════════════
 def preprocess_rf(data):
-    """Pipeline RF v2: rename → encode Type → temp_diff/power/strain → scaling."""
     df = pd.DataFrame([data])
-    rename_map = {
-        'Air temperature [K]': 'air_temp', 'Process temperature [K]': 'process_temp',
-        'Rotational speed [rpm]': 'rot_speed', 'Torque [Nm]': 'torque', 'Tool wear [min]': 'tool_wear'
-    }
+    rename_map = {'Air temperature [K]': 'air_temp', 'Process temperature [K]': 'process_temp', 'Rotational speed [rpm]': 'rot_speed', 'Torque [Nm]': 'torque', 'Tool wear [min]': 'tool_wear'}
     df = df.rename(columns=rename_map)
-
-    le_dict = models['rf']['le_dict']
-    for col, le in le_dict.items():
-        if col in df.columns:
-            try:
-                df[col] = le.transform(df[col].astype(str))
-            except Exception:
-                df[col] = 0
-
+    for col, le in models['rf']['le_dict'].items():
+        if col in df.columns: df[col] = le.transform(df[col].astype(str))
     df['temp_diff'] = df['process_temp'] - df['air_temp']
     df['power'] = df['torque'] * df['rot_speed']
     df['strain'] = df['tool_wear'] * df['torque']
-
-    num_cols = ['air_temp', 'process_temp', 'rot_speed', 'torque', 'tool_wear',
-                'temp_diff', 'power', 'strain']
+    num_cols = ['air_temp', 'process_temp', 'rot_speed', 'torque', 'tool_wear', 'temp_diff', 'power', 'strain']
     df[num_cols] = models['rf']['scaler'].transform(df[num_cols])
-
-    feats = models['rf']['features']
-    for f in feats:
-        if f not in df.columns:
-            df[f] = 0
-    return df[feats]
+    for f in models['rf']['features']:
+        if f not in df.columns: df[f] = 0
+    return df[models['rf']['features']]
 
 def preprocess_generic(key, data):
-    """DT/KNN/SVM: kirim DataFrame mentah (nama kolom asli) ke preprocessor jika ada."""
     df = pd.DataFrame([data])[RAW_COLS]
     pre = models[key].get('preprocessor')
-    if pre is not None:
-        try:
-            return pre.transform(df)
-        except Exception:
-            # fallback: kalau preprocessor mengharapkan kolom sudah di-reindex
-            feats = models[key].get('features')
-            if feats is not None:
-                enc = pd.get_dummies(df).reindex(columns=feats, fill_value=0)
-                return pre.transform(enc)
-            raise
-    return df  # model sudah berupa pipeline utuh
+    return pre.transform(df) if pre is not None else df
 
 def predict_any(key, data):
-    """Kembalikan (pred, proba2, threshold)."""
     X = preprocess_rf(data) if key == 'rf' else preprocess_generic(key, data)
-    model = models[key]['model']
-    proba = model.predict_proba(X)[0]
-    th = meta_get(key, 'threshold', None)
-    try:
-        th = float(th)
-    except (TypeError, ValueError):
-        th = 0.5
-    pred = int(proba[1] >= th)
-    return pred, proba, th
+    proba = models[key]['model'].predict_proba(X)[0]
+    th = PERF_DATA[key]['threshold']
+    return int(proba[1] >= th), proba, th
 
-# ══════════════════════════════════════════════════════════════
-#  INPUT FORM
-# ══════════════════════════════════════════════════════════════
-def input_form_maintenance():
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown('<div class="section-hdr">⚙️ Spesifikasi Mesin</div>', unsafe_allow_html=True)
-        type_mesin   = st.selectbox("Tipe Kualitas (Type)", ['L', 'M', 'H'])
-        air_temp     = st.number_input("Air temperature [K]", 290.0, 320.0, 298.0, step=0.1)
-        process_temp = st.number_input("Process temperature [K]", 300.0, 320.0, 308.0, step=0.1)
-    with c2:
-        st.markdown('<div class="section-hdr">📊 Metrik Sensor</div>', unsafe_allow_html=True)
-        rpm       = st.number_input("Rotational speed [rpm]", 1000, 3000, 1500, step=10)
-        torque    = st.number_input("Torque [Nm]", 3.0, 80.0, 40.0, step=0.1)
-        tool_wear = st.number_input("Tool wear [min]", 0, 300, 50, step=1)
-    return {
-        'Type': type_mesin,
-        'Air temperature [K]': air_temp,
-        'Process temperature [K]': process_temp,
-        'Rotational speed [rpm]': rpm,
-        'Torque [Nm]': torque,
-        'Tool wear [min]': tool_wear,
-    }
+def run_simulation(key, sample):
+    st.write("")
+    with st.status(f"🚀 Memulai Simulasi Pipeline: {PERF_DATA[key]['name']}", expanded=True) as status:
+        for i, (judul, desc) in enumerate(SIM_STEPS[key]):
+            time.sleep(0.7)
+            st.markdown(f"**{i+1}. {judul}**")
+            st.caption(f"↳ {desc}")
+        time.sleep(0.5)
+        status.update(label="✅ Simulasi Selesai", state="complete", expanded=False)
+        
+    try:
+        pred, proba, th = predict_any(key, sample)
+        show_prediction_result(pred, proba, th)
+    except Exception as e:
+        st.error(f"Gagal menjalankan prediksi: {e}")
 
 def show_prediction_result(pred, proba, threshold):
-    a, b, c = st.columns(3)
-    a.metric("🔴 Prob. Failure", f"{proba[1]*100:.1f}%")
-    b.metric("🟢 Prob. Normal", f"{proba[0]*100:.1f}%")
-    c.metric("📌 Threshold", f"{threshold:.2f}")
+    st.markdown("### 🎯 Hasil Klasifikasi")
+    m1, m2, m3 = st.columns(3)
+    m1.metric("🔴 Prob. Failure", f"{proba[1]*100:.1f}%")
+    m2.metric("🟢 Prob. Normal", f"{proba[0]*100:.1f}%")
+    m3.metric("📌 Threshold", f"{threshold:.2f}")
 
     if pred == 1:
-        st.markdown('<div class="result-fail">🚨 Mesin diprediksi akan <strong>GAGAL (FAILURE)</strong> — segera lakukan inspeksi & maintenance.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="result-fail">🚨 Mesin diprediksi akan <strong>GAGAL (FAILURE)</strong> — Segera lakukan inspeksi & maintenance!</div>', unsafe_allow_html=True)
     else:
-        st.markdown('<div class="result-ok">✅ Mesin diprediksi <strong>NORMAL</strong> — aman untuk dioperasikan.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="result-ok">✅ Mesin diprediksi <strong>NORMAL</strong> — Aman untuk dioperasikan.</div>', unsafe_allow_html=True)
+    
+    # Progress bar style visualization
+    st.write("**Visualisasi Probabilitas**")
+    progress_html = f"""
+    <div style='width:100%; background-color:#1e293b; border-radius:8px; overflow:hidden; display:flex; height:24px;'>
+        <div style='width:{proba[1]*100}%; background-color:#ef4444; display:flex; align-items:center; justify-content:center; color:white; font-size:0.75rem; font-weight:bold;'>{proba[1]*100:.1f}% Fail</div>
+        <div style='width:{proba[0]*100}%; background-color:#22c55e; display:flex; align-items:center; justify-content:center; color:white; font-size:0.75rem; font-weight:bold;'>{proba[0]*100:.1f}% Normal</div>
+    </div>
+    """
+    st.markdown(progress_html, unsafe_allow_html=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    fig, ax = plt.subplots(figsize=(8, 1.2))
-    fig.patch.set_facecolor(BG); ax.set_facecolor(BG)
-    ax.barh([''], [proba[1]], color=(RED if pred == 1 else GRN), height=0.5, zorder=3)
-    ax.barh([''], [proba[0]], left=[proba[1]], color=GRID, height=0.5, zorder=3)
-    ax.axvline(threshold, color=YLW, linestyle='--', linewidth=2, zorder=4, label=f'Threshold ({threshold:.2f})')
-    ax.set_xlim(0, 1); ax.set_xlabel('Probabilitas Failure', color=TXTS, fontsize=9)
-    for sp in ax.spines.values(): sp.set_color(GRID)
-    ax.tick_params(colors=TXTS)
-    ax.legend(loc='upper right', fontsize=8, facecolor=BG2, edgecolor=GRID, labelcolor='white')
-    ax.text(proba[1]/2, 0, f'{proba[1]*100:.1f}%', ha='center', va='center', color='white', fontsize=10, fontweight='bold')
-    plt.tight_layout(pad=0.5); st.pyplot(fig); plt.close()
-
-def show_model_tab(key, perf_rows, tech_items, chart_fn_list):
-    is_est = key in EST  # DT/KNN/SVM tanpa metadata asli
-    cols = st.columns(4)
-    auc_label = "ROC-AUC (est.)" if is_est else "ROC-AUC"
-    f1_label  = "Macro F1 (est.)" if is_est else "Macro F1"
-    cols[0].metric(auc_label, f"{get_metric(key, 'auc', 0):.4f}")
-    cols[1].metric(f1_label, f"{get_metric(key, 'macro_f1', 0):.4f}")
-
-    # Jumlah fitur: dari metadata (RF) atau dari panjang features (DT/KNN/SVM)
-    nfeat = meta_get(key, 'n_features', None)
-    if nfeat in (None, '—'):
-        feats = models[key].get('features')
-        nfeat = len(feats) if isinstance(feats, (list, tuple)) else '—'
-    cols[2].metric("Input Fitur", str(nfeat))
-
-    th = meta_get(key, 'threshold', None)
-    if th not in (None, '—'):
-        try: cols[3].metric("Threshold", f"{float(th):.2f}")
-        except: cols[3].metric("Threshold", "0.50")
-    else:
-        cols[3].metric("Threshold", "0.50")
-
-    if is_est:
-        st.caption("ℹ️ ROC-AUC & Macro F1 model ini adalah estimasi (file metadata tidak disertakan). Ganti di dict `EST` bila nilai asli tersedia.")
-
-    st.markdown("---")
-    if chart_fn_list:
-        ccols = st.columns(len(chart_fn_list))
-        for col, fn in zip(ccols, chart_fn_list):
-            with col:
-                st.pyplot(fn()); plt.close()
-
-    st.markdown("---")
-    c1, c2 = st.columns(2)
-    with c1:
-        st.markdown("#### ⚙️ Hyperparameter")
-        params = models[key].get('params', {})
-        if isinstance(params, dict) and params:
-            st.dataframe(pd.DataFrame(params.items(), columns=['Parameter', 'Value']),
-                         use_container_width=True, hide_index=True)
-        else:
-            st.info("Parameter tuning tidak disertakan dalam file model.")
-    with c2:
-        st.markdown("#### 📈 Performa Detail")
-        st.dataframe(pd.DataFrame(perf_rows), use_container_width=True, hide_index=True)
-
-    st.markdown("---")
-    st.markdown("#### 🔧 Teknik yang Digunakan")
-    tcols = st.columns(len(tech_items))
-    for col, (title, desc) in zip(tcols, tech_items.items()):
-        col.info(f"**{title}**\n\n{desc}")
-
-def render_prediction_tab(key):
-    data = input_form_maintenance()
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("🔮  Jalankan Prediksi", use_container_width=True, type="primary", key=f"btn_{key}"):
-        with st.spinner("Memproses data sensor..."):
-            try:
-                pred, proba, th = predict_any(key, data)
-                st.markdown("---"); st.markdown("#### 📊 Hasil Prediksi")
-                show_prediction_result(pred, proba, th)
-            except Exception as e:
-                st.error(f"Gagal memproses: {e}")
-                st.caption("Cek apakah format file model sesuai. Jalankan `cek_models.py` untuk melihat isi folder models/.")
 
 # ══════════════════════════════════════════════════════════════
-#  SIDEBAR
+#  SIDEBAR NAVIGATION
 # ══════════════════════════════════════════════════════════════
-NAV = {"🌲 Random Forest": 'rf', "🌳 Decision Tree": 'dt', "🔵 KNN": 'knn', "⚡ SVM": 'svm'}
-NAME = {'rf': "Random Forest", 'dt': "Decision Tree", 'knn': "K-Nearest Neighbors", 'svm': "Support Vector Machine"}
-COLOR = {'rf': '#ff8c42', 'dt': '#2ed573', 'knn': '#00b4d8', 'svm': '#f9ca24'}
+NAV = {"🏠 Beranda": 'home', "🌲 Random Forest": 'rf', "🌳 Decision Tree": 'dt', "🔵 KNN": 'knn', "⚡ SVM": 'svm'}
 
 with st.sidebar:
     st.markdown("""
-    <div style='text-align:center;padding:18px 0 8px;'>
-        <div style='font-size:2.4rem;'>🛠️</div>
-        <div style='font-size:1.15rem;font-weight:800;color:white;margin-top:6px;'>Predictive Maintenance</div>
-        <div style='font-size:0.72rem;color:#7d8aa3;margin-top:3px;letter-spacing:0.05em;'>Machine Failure Prediction</div>
+    <div style='text-align:center; padding-top: 1rem; padding-bottom: 2rem;'>
+        <div style='font-size:3rem; margin-bottom:0.5rem;'>⚙️</div>
+        <div style='font-size:1.25rem; font-weight:800; color:white;'>Predictive Maintenance</div>
+        <div style='color:#94a3b8; font-size:0.8rem; margin-top:0.25rem;'>AI-Driven Anomaly Detection</div>
     </div>
     """, unsafe_allow_html=True)
-    st.markdown("---")
-    st.markdown('<div class="section-hdr">Pilih Model</div>', unsafe_allow_html=True)
-    page = st.selectbox("", list(NAV.keys()), label_visibility="collapsed")
-
-    st.markdown("---")
-    st.markdown('<div class="section-hdr">Status Model</div>', unsafe_allow_html=True)
-    for label, key in NAV.items():
-        dot = "🟢" if models.get(key) else "🔴"
-        st.markdown(f'<div style="font-size:0.85rem;color:#cdd6e6;padding:3px 0;">{dot} {label}</div>', unsafe_allow_html=True)
-
-    st.markdown("---")
+    
+    page = st.radio("Navigasi Utama", list(NAV.keys()))
     active = NAV[page]
-    if models.get(active):
-        st.markdown('<div class="section-hdr">Model Aktif</div>', unsafe_allow_html=True)
-        st.metric("ROC-AUC", f"{get_metric(active, 'auc', 0):.4f}")
-        st.metric("Macro F1", f"{get_metric(active, 'macro_f1', 0):.4f}")
-        th = meta_get(active, 'threshold', None)
-        if th not in (None, '—'):
-            try: st.metric("Threshold", f"{float(th):.2f}")
-            except: pass
-        nfeat = meta_get(active, 'n_features', None)
-        if nfeat in (None, '—'):
-            feats = models[active].get('features')
-            nfeat = len(feats) if isinstance(feats, (list, tuple)) else '—'
-        st.metric("Input Fitur", str(nfeat))
-
-    st.markdown("---")
-    st.markdown('<div style="font-size:0.7rem;color:#46506a;text-align:center;">Dataset: AI4I 2020<br>Predictive Maintenance</div>', unsafe_allow_html=True)
+    
+    st.divider()
+    st.caption("STATUS MODEL")
+    for label, key in NAV.items():
+        if key == 'home': continue
+        status_icon = "🟢" if models.get(key) else "🔴"
+        st.markdown(f"`{status_icon}` {label}")
 
 # ══════════════════════════════════════════════════════════════
-#  HEADER
+#  PAGE ROUTING
 # ══════════════════════════════════════════════════════════════
-mc = COLOR[active]
-st.markdown(f"""
-<div style='padding:22px 0 6px;'>
-    <div style='font-size:0.74rem;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;color:{mc};margin-bottom:6px;'>{page.split()[0]} {NAME[active]}</div>
-    <h1 style='font-size:2rem;font-weight:800;color:white;margin:0;line-height:1.2;'>Machine Failure Prediction</h1>
-    <p style='color:#7d8aa3;margin-top:8px;font-size:0.95rem;'>Memprediksi kegagalan mesin dari data sensor: suhu, kecepatan putaran, torsi, dan keausan alat.</p>
-</div>
-""", unsafe_allow_html=True)
-st.markdown("---")
+if active == 'home':
+    st.markdown("<div class='hero-title'>Prediksi Kegagalan Mesin dengan Machine Learning</div>", unsafe_allow_html=True)
+    st.markdown("<div class='hero-subtitle'>Analisis performa model klasifikasi (Random Forest, Decision Tree, KNN, dan SVM) untuk mendeteksi dini risiko kerusakan mesin berdasarkan data sensor real-time.</div>", unsafe_allow_html=True)
+    
+    st.divider()
 
-with st.expander("📊 Lihat Perbandingan Semua Model", expanded=False):
-    c1, c2 = st.columns(2)
-    with c1:
-        st.pyplot(plot_model_comparison()); plt.close()
-    with c2:
-        st.pyplot(plot_roc_curves()); plt.close()
-st.markdown("---")
+    # --- Section: Info Dataset ---
+    st.markdown("### 📦 Overview Dataset")
+    with st.container(border=True):
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Total Data", "10.000 Baris")
+        m2.metric("Fitur Input", "6 Kolom")
+        m3.metric("Kelas Normal", "9.661 (96.6%)")
+        m4.metric("Kelas Failure", "339 (3.4%)")
+        
+        st.info("**Imbalance Data Extreme:** Karena hanya 3.4% mesin yang mengalami kerusakan, **Recall Failure** jauh lebih krusial dibandingkan sekadar Akurasi Global. Gagal mendeteksi mesin rusak (False Negative) bisa mengakibatkan downtime industri yang mahal.")
+        
+        with st.expander("Lihat Detail Fitur / Kolom", expanded=False):
+            st.dataframe(pd.DataFrame({
+                'Fitur': ['Type', 'Air temperature [K]', 'Process temperature [K]', 'Rotational speed [rpm]', 'Torque [Nm]', 'Tool wear [min]'],
+                'Tipe': ['Kategorikal', 'Numerik', 'Numerik', 'Numerik', 'Numerik', 'Numerik'],
+                'Deskripsi': ['Kualitas produk (L/M/H)', 'Suhu udara sekitar', 'Suhu proses mesin', 'Kecepatan putaran', 'Torsi yang bekerja', 'Akumulasi keausan alat']
+            }), use_container_width=True, hide_index=True)
 
-# ══════════════════════════════════════════════════════════════
-#  TECH / PERF CONFIG PER MODEL
-# ══════════════════════════════════════════════════════════════
-PERF = {
-    'rf': {'Metrik': ['ROC-AUC', 'Macro F1', 'Recall Failure', 'Threshold', 'Total Fitur'],
-           'Nilai': [f"{get_metric('rf','auc',0):.4f}", f"{get_metric('rf','macro_f1',0):.4f}",
-                     '0.8382', f"{meta_get('rf','threshold','0.71')}", str(meta_get('rf','n_features','11'))]},
-    'dt': {'Metrik': ['ROC-AUC (est.)', 'Macro F1 (est.)', 'Input Fitur'],
-           'Nilai': [f"{get_metric('dt','auc',0):.4f}", f"{get_metric('dt','macro_f1',0):.4f}", '6']},
-    'knn': {'Metrik': ['ROC-AUC (est.)', 'Macro F1 (est.)', 'Input Fitur'],
-            'Nilai': [f"{get_metric('knn','auc',0):.4f}", f"{get_metric('knn','macro_f1',0):.4f}", '6']},
-    'svm': {'Metrik': ['ROC-AUC (est.)', 'Macro F1 (est.)', 'Input Fitur'],
-            'Nilai': [f"{get_metric('svm','auc',0):.4f}", f"{get_metric('svm','macro_f1',0):.4f}", '6']},
-}
-TECH = {
-    'rf': {'SMOTE': 'Atasi imbalance ~96:4', 'Feature Engineering': 'temp_diff, power, strain',
-           'Optuna Tuning': 'TPE Sampler, 50 trials', 'Threshold Opt.': '→ 0.71 untuk Macro F1'},
-    'dt': {'SMOTE': 'Atasi class imbalance', 'Pruning': 'max_depth cegah overfit', 'Optuna Tuning': 'Cari parameter pohon optimal'},
-    'knn': {'SMOTE': 'Atasi class imbalance', 'StandardScaler': 'Scaling wajib untuk KNN', 'Optuna Tuning': 'Cari n_neighbors optimal'},
-    'svm': {'SMOTE': 'Atasi class imbalance', 'StandardScaler': 'Scaling wajib untuk margin', 'Kernel RBF': 'Pemisahan non-linear'},
-}
-CHARTS = {
-    'rf': [plot_rf_feature_importance, plot_class_distribution],
-    'dt': [plot_dt_depth_curve, plot_class_distribution],
-    'knn': [plot_knn_k_curve, plot_class_distribution],
-    'svm': [plot_svm_kernel_comparison, plot_class_distribution],
-}
-GUIDE = {
-    'rf': "Random Forest menggabungkan banyak pohon keputusan (ensemble). Model kami memakai SMOTE untuk menyeimbangkan kelas, feature engineering (temp_diff, power, strain), tuning Optuna, dan optimasi threshold ke 0.71.",
-    'dt': "Decision Tree membangun aturan keputusan bercabang dari fitur sensor. Setiap node menanyakan satu kondisi (mis. torsi > X) hingga mencapai prediksi gagal/normal.",
-    'knn': "KNN mengklasifikasikan mesin berdasarkan kemiripan dengan K mesin terdekat di ruang fitur. Scaling wajib agar semua sensor punya skala setara.",
-    'svm': "SVM mencari hyperplane dengan margin maksimal yang memisahkan mesin normal dan gagal. Kernel RBF memungkinkan pemisahan non-linear.",
-}
+    st.write("")
+    
+    # --- Section: Simulasi Testing ---
+    st.markdown("### 🧪 Simulasi Prediksi Interaktif")
+    st.write("Jalankan simulasi langkah demi langkah untuk melihat bagaimana model memproses data sensor.")
+    
+    with st.container(border=True):
+        col_sim1, col_sim2 = st.columns(2)
+        with col_sim1:
+            sim_model_label = st.selectbox("1️⃣ Pilih Model AI", ['🌲 Random Forest', '🌳 Decision Tree', '🔵 KNN', '⚡ SVM'])
+            sim_key = {'🌲 Random Forest': 'rf', '🌳 Decision Tree': 'dt', '🔵 KNN': 'knn', '⚡ SVM': 'svm'}[sim_model_label]
+        with col_sim2:
+            sim_sample_label = st.selectbox("2️⃣ Pilih Skenario Data Sensor", list(SAMPLE_ROWS.keys()))
+            sim_sample = SAMPLE_ROWS[sim_sample_label]
 
-# ══════════════════════════════════════════════════════════════
-#  MAIN PAGE
-# ══════════════════════════════════════════════════════════════
-if not models.get(active):
-    st.warning(f"⚠️ Model {NAME[active]} belum tersedia. Pastikan file .pkl ada di folder `models/`.")
+        st.caption("Data Sensor yang diuji:")
+        st.dataframe(pd.DataFrame([sim_sample]), use_container_width=True, hide_index=True)
+        
+        if not models.get(sim_key):
+            st.error(f"Model {sim_model_label} gagal dimuat!")
+        else:
+            if st.button("▶️ Mulai Simulasi Testing", type="primary", use_container_width=True):
+                run_simulation(sim_key, sim_sample)
+
+    st.write("")
+    
+    # --- Section: Perbandingan Performa ---
+    st.markdown("### 📊 Perbandingan Performa Model")
+    col_chart1, col_chart2 = st.columns([1.5, 1])
+    with col_chart1:
+        st.altair_chart(plot_metric_comparison_altair(), use_container_width=True)
+    with col_chart2:
+        st.altair_chart(plot_recall_focus_altair(), use_container_width=True)
+
+    with st.container(border=True):
+        st.markdown("#### 🏆 Kesimpulan & Rekomendasi")
+        c1, c2 = st.columns(2)
+        with c1:
+            st.success("**Random Forest adalah model terbaik.** Dengan kombinasi SMOTE, feature engineering, dan optimasi threshold, model ini mencetak **Recall Failure tertinggi (83.8%)**. Artinya, model ini paling tangguh mendeteksi mesin bermasalah.")
+        with c2:
+            st.warning("**Hindari Model dengan Recall Rendah.** Meskipun KNN dan SVM memiliki akurasi di atas 97%, recall mereka sangat buruk (hanya ~30-50%). Mereka cenderung buta terhadap mesin yang rusak karena dominasi kelas mayoritas (Normal).")
+
+
 else:
-    tab_info, tab_guide, tab_pred = st.tabs(["📊  Model Info", "📋  Panduan", "🔮  Prediksi"])
-    with tab_info:
-        show_model_tab(active, PERF[active], TECH[active], CHARTS[active])
-    with tab_guide:
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("""
-            #### 📖 Cara Menggunakan
-            1. Buka tab **Prediksi**
-            2. Isi data sensor mesin
-            3. Klik **Jalankan Prediksi**
-            4. Lihat hasil & probabilitas kegagalan
-            """)
-        with col2:
-            st.markdown(f"""
-            #### 📦 Tentang Dataset
-            - **Sumber**: AI4I 2020 Predictive Maintenance
-            - **Total data**: 10.000 baris
-            - **Fitur input**: Type, suhu udara/proses, rpm, torsi, tool wear
-            - **Target**: Failure (0 / 1) — sangat imbalanced
+    # ══════════════════════════════════════════════════════════════
+    #  PAGE: INDIVIDUAL MODEL DETAIL
+    # ══════════════════════════════════════════════════════════════
+    d = PERF_DATA[active]
+    st.markdown(f"<div class='hero-title' style='font-size:2rem;'>{d['icon']} {d['name']}</div>", unsafe_allow_html=True)
+    st.markdown("<div class='hero-subtitle'>Detail arsitektur, parameter, dan uji prediksi mandiri.</div>", unsafe_allow_html=True)
+    
+    if not models.get(active):
+        st.error(f"⚠️ Model {d['name']} gagal dimuat. Pastikan file model tersedia.")
+    else:
+        t_info, t_pred = st.tabs(["📊 Performa & Parameter", "🔮 Prediksi Kustom"])
+        
+        with t_info:
+            # Metrics
+            st.subheader("Key Performance Indicators")
+            m1, m2, m3, m4 = st.columns(4)
+            if active == 'rf':
+                m1.metric("ROC-AUC", f"{d['auc']:.4f}")
+                m2.metric("Macro F1", f"{d['macro_f1']:.4f}")
+                m3.metric("Recall Failure", f"{d['recall']*100:.1f}%")
+                m4.metric("Threshold Evaluasi", f"{d['threshold']}")
+            else:
+                m1.metric("Accuracy", f"{d['accuracy']*100:.2f}%")
+                m2.metric("Recall Failure", f"{d['recall']*100:.1f}%")
+                m3.metric("F1 Failure", f"{d['f1_fail']:.4f}")
+                m4.metric("Threshold Evaluasi", f"{d['threshold']}")
 
-            #### 🔬 Tentang Model
-            {GUIDE[active]}
-            """)
-    with tab_pred:
-        render_prediction_tab(active)
+            st.write("")
+            c1, c2 = st.columns(2)
+            with c1:
+                with st.container(border=True):
+                    st.markdown("#### ⚙️ Konfigurasi Hyperparameter")
+                    st.dataframe(pd.DataFrame(d['params'].items(), columns=['Parameter', 'Nilai Config']), use_container_width=True, hide_index=True)
+            with c2:
+                with st.container(border=True):
+                    st.markdown("#### 🛠️ Metode Pelatihan")
+                    st.markdown(f"- **Metode Sampling:** {d['sampling']}")
+                    if active == 'rf':
+                        st.markdown("- **Feature Engineering:** `temp_diff`, `power`, `strain`")
+                    else:
+                        st.markdown("- **Preprocessing:** `StandardScaler`, `One-Hot Encoding`")
+        
+        with t_pred:
+            st.subheader("Input Spesifikasi Mesin")
+            with st.form("custom_predict_form"):
+                fc1, fc2 = st.columns(2)
+                with fc1:
+                    t_val = st.selectbox("Kualitas Mesin (Type)", ['L', 'M', 'H'])
+                    a_val = st.number_input("Air temperature [K]", 290.0, 320.0, 298.0, 0.1)
+                    p_val = st.number_input("Process temperature [K]", 300.0, 320.0, 308.0, 0.1)
+                with fc2:
+                    r_val = st.number_input("Rotational speed [rpm]", 1000, 3000, 1500, 10)
+                    tq_val = st.number_input("Torque [Nm]", 3.0, 80.0, 40.0, 0.1)
+                    w_val = st.number_input("Tool wear [min]", 0, 300, 50, 1)
+                
+                submitted = st.form_submit_button("🔮 Eksekusi Prediksi", type="primary", use_container_width=True)
+                
+                if submitted:
+                    custom_data = {
+                        'Type': t_val, 'Air temperature [K]': a_val, 'Process temperature [K]': p_val,
+                        'Rotational speed [rpm]': r_val, 'Torque [Nm]': tq_val, 'Tool wear [min]': w_val
+                    }
+                    try:
+                        c_pred, c_proba, c_th = predict_any(active, custom_data)
+                        st.divider()
+                        show_prediction_result(c_pred, c_proba, c_th)
+                    except Exception as e:
+                        st.error(f"Error prediksi: {e}")
