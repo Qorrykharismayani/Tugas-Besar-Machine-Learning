@@ -9,7 +9,7 @@ from matplotlib.gridspec import GridSpec
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 
 st.set_page_config(
-    page_title="Telco Churn Predictor",
+    page_title="Predictive Maintenance",
     page_icon="📡",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -440,7 +440,7 @@ def preprocess_svm(data):
 # ══════════════════════════════════════════════════════════════
 #  INPUT FORM
 # ══════════════════════════════════════════════════════════════
-def input_form():
+def input_form_churn():
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown('<div class="section-hdr">👤 Info Pelanggan</div>', unsafe_allow_html=True)
@@ -484,7 +484,31 @@ def input_form():
         'MonthlyCharges': monthly_charges, 'TotalCharges': total_charges,
     }
 
-def show_prediction_result(pred, proba, threshold):
+
+def input_form_maintenance():
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown('<div class="section-hdr">⚙️ Spesifikasi Mesin</div>', unsafe_allow_html=True)
+        type_mesin = st.selectbox("Tipe Kualitas Mesin (Type)", ['L', 'M', 'H'])
+        air_temp = st.number_input("Suhu Udara / Air Temp [K]", 290.0, 310.0, 298.0)
+        process_temp = st.number_input("Suhu Proses / Process Temp [K]", 300.0, 320.0, 308.0)
+    with col2:
+        st.markdown('<div class="section-hdr">📊 Metrik Sensor</div>', unsafe_allow_html=True)
+        rpm = st.number_input("Kecepatan Putaran / Rotational speed [rpm]", 1000, 3000, 1500)
+        torque = st.number_input("Torsi / Torque [Nm]", 10.0, 80.0, 40.0)
+        tool_wear = st.number_input("Keausan Alat / Tool wear [min]", 0, 300, 50)
+        
+    return {
+        'Type': type_mesin,
+        'Air temperature [K]': air_temp,
+        'Process temperature [K]': process_temp,
+        'Rotational speed [rpm]': rpm,
+        'Torque [Nm]': torque,
+        'Tool wear [min]': tool_wear
+    }
+
+
+def show_prediction_result_churn(pred, proba, threshold):
     col_a, col_b, col_c = st.columns(3)
     col_a.metric("🔴 Prob. Churn",  f"{proba[1]*100:.1f}%")
     col_b.metric("🟢 Prob. Stay",   f"{proba[0]*100:.1f}%")
@@ -511,6 +535,35 @@ def show_prediction_result(pred, proba, threshold):
     plt.tight_layout(pad=0.5)
     st.pyplot(fig); plt.close()
 
+
+def show_prediction_result_maintenance(pred, proba, threshold):
+    col_a, col_b, col_c = st.columns(3)
+    col_a.metric("🔴 Prob. Rusak (Failure)",  f"{proba[1]*100:.1f}%")
+    col_b.metric("🟢 Prob. Normal",   f"{proba[0]*100:.1f}%")
+    col_c.metric("📌 Threshold",    f"{threshold}")
+
+    if pred == 1:
+        st.markdown('<div class="result-churn">🚨 Mesin ini diprediksi akan <strong>RUSAK (FAILURE)</strong> — hentikan operasi dan periksa!</div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="result-stay">✅ Mesin ini diprediksi <strong>NORMAL</strong> — aman untuk dioperasikan.</div>', unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    fig, ax = plt.subplots(figsize=(8, 1.2))
+    fig.patch.set_facecolor(BG); ax.set_facecolor(BG)
+    bar_color = RED if pred == 1 else GRN
+    ax.barh([''], [proba[1]], color=bar_color, height=0.5, zorder=3)
+    ax.barh([''], [proba[0]], left=[proba[1]], color=GRID, height=0.5, zorder=3)
+    ax.axvline(x=threshold, color=YLW, linestyle='--', linewidth=2, zorder=4, label=f'Threshold ({threshold})')
+    ax.set_xlim(0, 1); ax.set_xlabel('Probabilitas', color=TXTS, fontsize=9)
+    for sp in ax.spines.values(): sp.set_color(GRID)
+    ax.tick_params(colors=TXTS)
+    ax.legend(loc='upper right', fontsize=8, facecolor=BG2, edgecolor=GRID, labelcolor='white')
+    ax.text(proba[1]/2, 0, f'{proba[1]*100:.1f}%', ha='center', va='center',
+            color='white', fontsize=10, fontweight='bold')
+    plt.tight_layout(pad=0.5)
+    st.pyplot(fig); plt.close()
+
+
 def show_model_tab(key, perf_rows, tech_items, chart_fn_list):
     """Reusable Model Info tab."""
     meta   = models[key]['metadata']
@@ -524,7 +577,7 @@ def show_model_tab(key, perf_rows, tech_items, chart_fn_list):
     if 'threshold' in meta:
         m_cols[3].metric("Threshold", str(meta['threshold']))
     else:
-        m_cols[3].metric("Dataset", "Telco")
+        m_cols[3].metric("Dataset", "Maintenance")
 
     st.markdown("---")
 
@@ -561,7 +614,7 @@ with st.sidebar:
     st.markdown("""
     <div style='text-align:center;padding:20px 0 10px;'>
         <div style='font-size:2.5rem;'>📡</div>
-        <div style='font-size:1.2rem;font-weight:700;color:white;margin-top:8px;'>Telco Churn</div>
+        <div style='font-size:1.2rem;font-weight:700;color:white;margin-top:8px;'>Predictive Maintenance</div>
         <div style='font-size:0.75rem;color:#8888aa;margin-top:4px;'>Prediction Dashboard</div>
     </div>
     """, unsafe_allow_html=True)
@@ -588,7 +641,7 @@ with st.sidebar:
         st.metric("Features", str(meta['n_features']))
 
     st.markdown("---")
-    st.markdown('<div style="font-size:0.7rem;color:#555577;text-align:center;">Dataset: Telco Customer Churn<br>IBM © 2024</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:0.7rem;color:#555577;text-align:center;">Dataset: Predictive Maintenance<br>IBM © 2024</div>', unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════
 #  HEADER
@@ -600,7 +653,7 @@ mc = color_map[page]
 st.markdown(f"""
 <div style='padding:24px 0 8px;'>
     <div style='font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.12em;color:{mc};margin-bottom:6px;'>{page.split()[0]} {name_map[page]}</div>
-    <h1 style='font-size:2rem;font-weight:700;color:white;margin:0;line-height:1.2;'>Telco Customer Churn Prediction</h1>
+    <h1 style='font-size:2rem;font-weight:700;color:white;margin:0;line-height:1.2;'>Predictive Maintenance / Machine Failure Prediction</h1>
     <p style='color:#8888aa;margin-top:8px;font-size:0.95rem;'>Prediksi apakah pelanggan akan berhenti berlangganan berdasarkan data historis.</p>
 </div>
 """, unsafe_allow_html=True)
@@ -631,7 +684,7 @@ if "Random Forest" in page:
                            'Nilai' :['0.8357','0.7350','0.59','0.6791','0.56','28']},
                 tech_items={
                     'SMOTE'             :'Handle class imbalance 73:27',
-                    'Feature Engineering':'8 fitur baru dari domain Telco',
+                    'Feature Engineering':'Fitur SMOTE untuk kelas mesin rusak',
                     'Optuna Tuning'     :'TPE Sampler, 50 trials',
                     'Threshold Opt.'    :'0.5 → 0.56 untuk Macro F1 optimal',
                 },
@@ -659,7 +712,7 @@ if "Random Forest" in page:
             with col2:
                 st.markdown("""
                 #### 📦 Tentang Dataset
-                - **Sumber**: IBM Telco Customer Churn
+                - **Sumber**: UCI Predictive Maintenance Dataset
                 - **Total data**: 7.043 pelanggan
                 - **Fitur input**: 19 → 28 setelah engineering
                 - **Target**: Churn (Yes/No)
@@ -726,7 +779,7 @@ elif "KNN" in page:
             """)
 
         with tab_pred:
-            input_data = input_form()
+            input_data = input_form_maintenance()
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("🔮  Jalankan Prediksi", use_container_width=True, type="primary"):
                 with st.spinner("Memproses data..."):
@@ -736,7 +789,7 @@ elif "KNN" in page:
                         pred      = models['knn']['model'].predict(X_input)[0]
                         threshold = models['knn']['metadata'].get('threshold', 0.5)
                         st.markdown("---")
-                        show_prediction_result(pred, proba, threshold)
+                        show_prediction_result_maintenance(pred, proba, threshold)
                     except Exception as e:
                         st.error(f"Error: {e}")
 
@@ -777,7 +830,7 @@ elif "Decision Tree" in page:
             """)
 
         with tab_pred:
-            input_data = input_form()
+            input_data = input_form_maintenance()
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("🔮  Jalankan Prediksi", use_container_width=True, type="primary"):
                 with st.spinner("Memproses data..."):
@@ -787,7 +840,7 @@ elif "Decision Tree" in page:
                         pred      = models['dt']['model'].predict(X_input)[0]
                         threshold = models['dt']['metadata'].get('threshold', 0.5)
                         st.markdown("---")
-                        show_prediction_result(pred, proba, threshold)
+                        show_prediction_result_maintenance(pred, proba, threshold)
                     except Exception as e:
                         st.error(f"Error: {e}")
 
@@ -845,7 +898,7 @@ elif "SVM" in page:
                 """)
 
         with tab_pred:
-            input_data = input_form()
+            input_data = input_form_maintenance()
             st.markdown("<br>", unsafe_allow_html=True)
             if st.button("🔮  Jalankan Prediksi", use_container_width=True, type="primary"):
                 with st.spinner("Memproses data..."):
@@ -855,6 +908,6 @@ elif "SVM" in page:
                         threshold = models['svm']['metadata'].get('threshold', 0.63)
                         pred      = int(proba[1] >= threshold)
                         st.markdown("---")
-                        show_prediction_result(pred, proba, threshold)
+                        show_prediction_result_maintenance(pred, proba, threshold)
                     except Exception as e:
                         st.error(f"Error: {e}")
