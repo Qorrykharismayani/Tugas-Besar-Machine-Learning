@@ -613,7 +613,7 @@ with st.sidebar:
     st.markdown("---")
 
     st.markdown('<div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#6c63ff;margin-bottom:10px;">Navigasi</div>', unsafe_allow_html=True)
-    page = st.selectbox("",["🏠 Beranda","🌲 Random Forest","🔵 KNN","🌳 Decision Tree","⚡ SVM","📊 Kesimpulan"],label_visibility="collapsed")
+    page = st.selectbox("",["🏠 Beranda","🌲 Random Forest","🔵 KNN","🌳 Decision Tree","⚡ SVM","📊 Kesimpulan", "👥 Tim Pengembang"],label_visibility="collapsed")
 
     st.markdown("---")
     st.markdown('<div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.12em;color:#6c63ff;margin-bottom:10px;">Status Model</div>', unsafe_allow_html=True)
@@ -1208,9 +1208,9 @@ elif "Kesimpulan" in page:
     with c4: st.pyplot(plot_f1_recall_scatter()); plt.close()
 
     st.markdown("---")
-    c3,c4=st.columns(2)
-    with c3: st.pyplot(plot_roc_all()); plt.close()
-    with c4: st.pyplot(plot_f1_recall_scatter()); plt.close()
+    st.markdown("### 🔍 Bukti Visual: Kemampuan SVM pada Data Kompleks")
+    st.pyplot(plot_svm_decision_boundary()); plt.close()
+    st.caption("**Bukti Simulasi RBF Kernel:** SVM mampu membelah batas data yang saling tumpang tindih dan melingkar, di mana model dengan garis pemisah lurus (Linear) akan gagal total.")
 
     st.markdown("---")
     st.markdown("### 💡 Rekomendasi Penggunaan (Berbasis Bukti)")
@@ -1245,11 +1245,6 @@ elif "Kesimpulan" in page:
         <b>Bukti Kuat:</b> SVM di-setting menggunakan <i>Kernel RBF</i>. Secara matematis, ia memproyeksikan data sensor ke ruang dimensi tinggi untuk menggambar batas area pemisah yang melengkung secara fleksibel. Kemampuan ini (ditunjukkan pada visualisasi <i>Decision Boundary</i> di atas/beranda) menjadikannya sangat tangguh apabila pabrik memunculkan data sensor yang pola kerusakannya sangat acak dan saling tumpang tindih.
         </div>
         """, unsafe_allow_html=True)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-    with st.expander("👉 KLIK UNTUK MELIHAT BUKTI VISUAL: KEMAMPUAN SVM PADA DATA KOMPLEKS", expanded=False):
-        st.pyplot(plot_svm_decision_boundary()); plt.close()
-        st.caption("**Bukti Simulasi RBF Kernel:** SVM mampu membelah batas data yang saling tumpang tindih dan melingkar, di mana model dengan garis pemisah lurus (Linear) akan gagal total.")
 
     st.markdown("---")
     st.markdown("### 🏆 Kesimpulan Validasi: Mengapa Random Forest Menjadi Juara Mutlak?")
@@ -1296,3 +1291,82 @@ elif "Kesimpulan" in page:
         **Kesimpulan Akhir Pemilihan Model:** 
         Dengan demikian, nilai **F1 Failure = 0.8296** pada Random Forest menunjukkan keandalan model yang sangat baik dalam mendeteksi kerusakan secara tepat. Keseimbangan yang baik antara ketepatan tebakan (*Precision*) dan kemampuan mendeteksi seluruh kerusakan (*Recall*) menjadikan Random Forest sebagai solusi *Predictive Maintenance* yang paling disarankan untuk penggunaan di lapangan.
         """)
+
+# ══════════════════════════════════════════════════════════════
+#  PAGE: TIM PENGEMBANG
+# ══════════════════════════════════════════════════════════════
+elif page == "👥 Tim Pengembang":
+    st.markdown("<h2 class='title-glow'>👥 Profil Tim Pengembang</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='color:#a0a0b0; font-size:1.05rem; margin-bottom:30px;'>Halaman ini memuat profil dan rincian pembagian tugas (*Role & Responsibility*) dari anggota tim dalam pengerjaan proyek Tugas Besar.</p>", unsafe_allow_html=True)
+    
+    c1, c2 = st.columns(2)
+    with c1:
+        st.markdown("""
+        <div class="hero-card" style="border-top: 4px solid #6c63ff; min-height: 420px; margin-bottom: 20px;">
+            <div style="font-size: 3rem; text-align: center; margin-bottom: 5px;">👑</div>
+            <h4 style="text-align: center; margin-top: 0; color: #ffffff;">Ketut Qorry Kharismayani</h4>
+            <p style="text-align: center; color: #00b4d8; font-weight: bold; margin-bottom: 15px; font-size: 0.9rem;">NIM: 607012400015 | Ketua</p>
+            <h5 style="color: #c0c0d0; border-bottom: 1px solid #2d2d4e; padding-bottom: 5px; font-size: 0.9rem;">🛠️ Peran & Tugas:</h5>
+            <ul style="color: #a0a0b0; line-height: 1.6; font-size: 0.85rem;">
+                <li>Mengkoordinasikan keseluruhan jalannya proyek penelitian.</li>
+                <li>Merancang arsitektur dan melatih algoritma <b>Random Forest</b>.</li>
+                <li>Mendevelop dan mendesain antarmuka aplikasi (*UI/UX*) menggunakan <b>Streamlit</b>.</li>
+                <li>Menyusun kerangka kesimpulan akhir, visualisasi data, dan penyusunan laporan proyek.</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    with c2:
+        st.markdown("""
+        <div class="hero-card" style="border-top: 4px solid #00b4d8; min-height: 420px; margin-bottom: 20px;">
+            <div style="font-size: 3rem; text-align: center; margin-bottom: 5px;">👩‍💻</div>
+            <h4 style="text-align: center; margin-top: 0; color: #ffffff;">Fazrina Esa Putri Permana</h4>
+            <p style="text-align: center; color: #00b4d8; font-weight: bold; margin-bottom: 15px; font-size: 0.9rem;">NIM: 607012400047 | Anggota</p>
+            <h5 style="color: #c0c0d0; border-bottom: 1px solid #2d2d4e; padding-bottom: 5px; font-size: 0.9rem;">🛠️ Peran & Tugas:</h5>
+            <ul style="color: #a0a0b0; line-height: 1.6; font-size: 0.85rem;">
+                <li>Melakukan eksperimen pemodelan menggunakan algoritma <b>K-Nearest Neighbors (KNN)</b>.</li>
+                <li>Menganalisis matriks kebingungan (*Confusion Matrix*) model.</li>
+                <li>Menarik wawasan metrik presisi terhadap kemampuan prediksi model dalam mendeteksi anomali.</li>
+                <li>Berkontribusi penuh dalam penyusunan dan penulisan dokumen laporan akhir.</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+
+    c3, c4 = st.columns(2)
+    with c3:
+        st.markdown("""
+        <div class="hero-card" style="border-top: 4px solid #f9ca24; min-height: 420px; margin-bottom: 20px;">
+            <div style="font-size: 3rem; text-align: center; margin-bottom: 5px;">👩‍💻</div>
+            <h4 style="text-align: center; margin-top: 0; color: #ffffff;">Dalfa Munawwarotul Mahmudah</h4>
+            <p style="text-align: center; color: #00b4d8; font-weight: bold; margin-bottom: 15px; font-size: 0.9rem;">NIM: 607012430008 | Anggota</p>
+            <h5 style="color: #c0c0d0; border-bottom: 1px solid #2d2d4e; padding-bottom: 5px; font-size: 0.9rem;">🛠️ Peran & Tugas:</h5>
+            <ul style="color: #a0a0b0; line-height: 1.6; font-size: 0.85rem;">
+                <li>Melakukan eksperimen pemodelan menggunakan algoritma <b>Support Vector Machine (SVM)</b>.</li>
+                <li>Mengkonfigurasi *Kernel RBF* untuk memisahkan batas data yang melingkar secara kompleks.</li>
+                <li>Menyusun landasan evaluasi dan pengujian *Decision Boundary* SVM.</li>
+                <li>Berkontribusi penuh dalam penyusunan dan penulisan dokumen laporan akhir.</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    with c4:
+        st.markdown("""
+        <div class="hero-card" style="border-top: 4px solid #2ed573; min-height: 420px; margin-bottom: 20px;">
+            <div style="font-size: 3rem; text-align: center; margin-bottom: 5px;">👩‍💻</div>
+            <h4 style="text-align: center; margin-top: 0; color: #ffffff;">Inaya Faridah</h4>
+            <p style="text-align: center; color: #00b4d8; font-weight: bold; margin-bottom: 15px; font-size: 0.9rem;">NIM: 607012430016 | Anggota</p>
+            <h5 style="color: #c0c0d0; border-bottom: 1px solid #2d2d4e; padding-bottom: 5px; font-size: 0.9rem;">🛠️ Peran & Tugas:</h5>
+            <ul style="color: #a0a0b0; line-height: 1.6; font-size: 0.85rem;">
+                <li>Melakukan eksperimen pemodelan dan penyetelan menggunakan algoritma <b>Decision Tree (DT)</b>.</li>
+                <li>Mengoptimalkan batas struktur pohon keputusan demi menjaga kecepatan komputasi.</li>
+                <li>Menganalisis keseimbangan performa model *Tree-based* dibandingkan dengan algoritma lain.</li>
+                <li>Berkontribusi penuh dalam penyusunan dan penulisan dokumen laporan akhir.</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    st.markdown("---")
+    st.markdown("""
+    <div style='text-align:center; color:#8888aa; font-size:1.05rem; padding: 15px;'>
+        Proyek ini dikembangkan untuk memenuhi Tugas Besar Mata Kuliah <b>Dasar Ilmu Data</b><br>
+        <span style='color:#ffffff; font-weight:bold;'>D3 Sistem Informasi - Telkom University</span> © 2024
+    </div>
+    """, unsafe_allow_html=True)
