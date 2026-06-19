@@ -1040,7 +1040,7 @@ elif "Decision Tree" in page:
 
     with tab_info:
         c1,c2,c3,c4=st.columns(4)
-        c1.metric("Accuracy",   "98.55%")
+        c1.metric("Accuracy",   "0.9855")
         c2.metric("F1 Failure", "0.7820")
         c3.metric("Recall",     "0.7647")
         c4.metric("Precision",  "0.8000")
