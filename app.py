@@ -4,6 +4,8 @@ import numpy as np
 import joblib
 import json
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+import plotly.express as px
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 
 st.set_page_config(
@@ -79,15 +81,18 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 }
 
 .hero-card {
-    background: linear-gradient(135deg, #1e1e3a, #252545);
-    border: 1px solid #3d3d6b; border-radius: 16px;
-    padding: 20px 22px; margin-bottom: 12px;
-    transition: all 0.2s ease;
+    background: linear-gradient(145deg, rgba(30,30,58,0.8), rgba(37,37,69,0.9));
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(108,99,255,0.2); 
+    border-radius: 16px;
+    padding: 24px 22px; margin-bottom: 15px;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    display: flex; flex-direction: column; justify-content: flex-start; height: 100%;
 }
 .hero-card:hover {
     border-color: #6c63ff;
-    box-shadow: 0 6px 20px rgba(108,99,255,0.15);
-    transform: translateY(-2px);
+    box-shadow: 0 12px 30px rgba(108,99,255,0.4);
+    transform: translateY(-8px);
 }
 
 .winner-badge {
@@ -218,41 +223,45 @@ def fig_setup(fig, axes):
         ax.yaxis.label.set_color(TXTS)
 
 def plot_model_comparison():
-    names   = ['Random\nForest','KNN','Decision\nTree','SVM']
+    names   = ['Random Forest','KNN','Decision Tree','SVM']
     acc     = [0.9900,0.9740,0.9855,0.9790]
     f1_fail = [0.8296,0.4348,0.7820,0.6379]
-    x=np.arange(len(names)); w=0.35
 
-    fig,ax = plt.subplots(figsize=(8,4))
-    fig_setup(fig,ax)
-    b1=ax.bar(x-w/2,acc,    w,label='Accuracy',  color=ACC, alpha=0.85,zorder=3,edgecolor='none')
-    b2=ax.bar(x+w/2,f1_fail,w,label='F1 Failure',color=CYAN,alpha=0.85,zorder=3,edgecolor='none')
-    ax.set_xticks(x); ax.set_xticklabels(names,color=TXT,fontsize=9)
-    ax.set_ylim(0.3,1.08); ax.yaxis.grid(True,color=GRID,lw=0.5,zorder=0,alpha=0.6)
-    ax.set_axisbelow(True)
-    ax.set_title('Perbandingan Performa Semua Model',fontsize=12,fontweight='bold',pad=14,color=TXT)
-    ax.legend(facecolor=BG2,edgecolor=GRID,labelcolor=TXT,fontsize=9,framealpha=0.8)
-    for b in b1: ax.text(b.get_x()+b.get_width()/2,b.get_height()+0.008,f'{b.get_height():.3f}',ha='center',color=ACC,fontsize=7.5,fontweight='bold')
-    for b in b2: ax.text(b.get_x()+b.get_width()/2,b.get_height()+0.008,f'{b.get_height():.3f}',ha='center',color=CYAN,fontsize=7.5,fontweight='bold')
-    # Highlight winner
-    ax.patches[0].set_edgecolor(YLW); ax.patches[0].set_linewidth(2)
-    plt.tight_layout(pad=1.5); return fig
+    fig = go.Figure()
+    fig.add_trace(go.Bar(x=names, y=acc, name='Accuracy', marker_color=ACC, text=acc, texttemplate='%{text:.3f}', textposition='outside'))
+    fig.add_trace(go.Bar(x=names, y=f1_fail, name='F1 Failure', marker_color=CYAN, text=f1_fail, texttemplate='%{text:.3f}', textposition='outside'))
+
+    fig.update_layout(
+        title=dict(text='Perbandingan Performa Semua Model', font=dict(size=16, color=TXT)),
+        barmode='group',
+        paper_bgcolor=BG, plot_bgcolor=BG,
+        font=dict(color=TXT),
+        yaxis=dict(gridcolor=GRID, range=[0.3, 1.08], title='Score', zeroline=False),
+        xaxis=dict(gridcolor=GRID, title='', zeroline=False),
+        legend=dict(bgcolor=BG2, bordercolor=GRID),
+        margin=dict(t=50, b=20, l=20, r=20),
+        height=350
+    )
+    return fig
 
 def plot_class_dist():
-    fig,axes = plt.subplots(1,2,figsize=(8,3.5))
-    fig_setup(fig,axes)
-    for ax,data,title in zip(axes,[[9661,339],[4830,4830]],['Sebelum SMOTE','Sesudah SMOTE']):
-        bars=ax.bar(['No Failure','Failure'],data,color=[GRN,RED],width=0.5,zorder=3,edgecolor='none')
-        ax.yaxis.grid(True,color=GRID,lw=0.5,zorder=0,alpha=0.6); ax.set_axisbelow(True)
-        ax.set_title(title,fontsize=10,fontweight='bold')
-        for i,(v,_) in enumerate(zip(data,['No Failure','Failure'])):
-            ax.text(i,v+120,f'{v:,}',ha='center',color=TXT,fontsize=9,fontweight='bold')
-    fig.suptitle('Distribusi Kelas — Sebelum & Sesudah SMOTE',color=TXT,fontsize=11,fontweight='bold',y=1.02)
-    plt.tight_layout(pad=1.5); return fig
+    fig = go.Figure()
+    fig.add_trace(go.Bar(x=['No Failure', 'Failure'], y=[9661, 339], name='Sebelum SMOTE', marker_color=[GRN, RED], text=[9661, 339], texttemplate='%{text:,}', textposition='outside', xaxis='x1', yaxis='y1'))
+    fig.add_trace(go.Bar(x=['No Failure ', 'Failure '], y=[4830, 4830], name='Sesudah SMOTE', marker_color=[GRN, RED], text=[4830, 4830], texttemplate='%{text:,}', textposition='outside', xaxis='x2', yaxis='y2'))
+
+    fig.update_layout(
+        title=dict(text='Distribusi Kelas — Sebelum & Sesudah SMOTE', font=dict(size=14, color=TXT)),
+        paper_bgcolor=BG, plot_bgcolor=BG, font=dict(color=TXT),
+        grid=dict(rows=1, columns=2, pattern='independent'),
+        showlegend=False,
+        yaxis=dict(gridcolor=GRID, range=[0, 11000], zeroline=False), yaxis2=dict(gridcolor=GRID, range=[0, 11000], zeroline=False),
+        xaxis=dict(title='Sebelum SMOTE'), xaxis2=dict(title='Sesudah SMOTE'),
+        height=350, margin=dict(t=50, b=30, l=20, r=20)
+    )
+    return fig
 
 def plot_roc_all():
-    fig,ax = plt.subplots(figsize=(7,5))
-    fig_setup(fig,ax)
+    fig = go.Figure()
     def make_roc(auc,seed=0):
         np.random.seed(seed)
         fpr=np.linspace(0,1,100)
@@ -263,228 +272,242 @@ def plot_roc_all():
         ('Random Forest',0.9818,ACC,1),('KNN',0.8500,CYAN,2),
         ('Decision Tree',0.9200,YLW,3),('SVM',0.8900,RED,4)]:
         fpr,tpr=make_roc(auc,seed)
-        lw = 2.5 if name=='Random Forest' else 1.8
-        ax.plot(fpr,tpr,color=color,lw=lw,label=f'{name} (AUC={auc:.3f})',
-                linestyle='-' if name=='Random Forest' else '--')
+        lw = 3 if name=='Random Forest' else 2
+        dash = 'solid' if name=='Random Forest' else 'dash'
+        fig.add_trace(go.Scatter(x=fpr, y=tpr, mode='lines', name=f'{name} (AUC={auc:.3f})', line=dict(color=color, width=lw, dash=dash)))
 
-    ax.plot([0,1],[0,1],'--',color=GRID,lw=1,label='Random (0.500)')
-    ax.fill_between([0,1],[0,0],[1,1],alpha=0.03,color=TXTS)
-    ax.set_xlabel('False Positive Rate'); ax.set_ylabel('True Positive Rate')
-    ax.set_title('ROC Curve — Semua Model',fontsize=12,fontweight='bold',pad=14)
-    ax.legend(facecolor=BG2,edgecolor=GRID,labelcolor=TXT,fontsize=8.5,loc='lower right')
-    ax.xaxis.grid(True,color=GRID,lw=0.4,alpha=0.6); ax.yaxis.grid(True,color=GRID,lw=0.4,alpha=0.6)
-    plt.tight_layout(pad=1.5); return fig
+    fig.add_trace(go.Scatter(x=[0,1], y=[0,1], mode='lines', name='Random (0.500)', line=dict(color=GRID, dash='dash')))
+
+    fig.update_layout(
+        title=dict(text='ROC Curve — Semua Model', font=dict(size=14, color=TXT)),
+        paper_bgcolor=BG, plot_bgcolor=BG, font=dict(color=TXT),
+        xaxis=dict(title='False Positive Rate', gridcolor=GRID, range=[0,1], zeroline=False),
+        yaxis=dict(title='True Positive Rate', gridcolor=GRID, range=[0,1], zeroline=False),
+        legend=dict(bgcolor=BG2, bordercolor=GRID, x=0.65, y=0.05),
+        height=400, margin=dict(t=50, b=20, l=20, r=20)
+    )
+    return fig
 
 def plot_radar():
-    """Radar/spider chart perbandingan 4 model."""
-    categories = ['Accuracy','F1 Failure','Recall\nFailure','Precision\nFailure','AUC']
-    N = len(categories)
+    categories = ['Accuracy','F1 Failure','Recall Failure','Precision Failure','AUC']
     models_data = {
         'Random Forest': [0.990,0.8296,0.8235,0.8400,0.9818],
-        'KNN'          : [0.974,0.4348,0.2941,0.8333,0.8500],
         'Decision Tree': [0.9855,0.7820,0.7647,0.8000,0.9200],
         'SVM'          : [0.979,0.6379,0.5441,0.7708,0.8900],
+        'KNN'          : [0.974,0.4348,0.2941,0.8333,0.8500],
     }
     colors_map = {'Random Forest':ACC,'KNN':CYAN,'Decision Tree':YLW,'SVM':RED}
 
-    angles = [n/float(N)*2*np.pi for n in range(N)]
-    angles += angles[:1]
-
-    fig,ax = plt.subplots(1,1,figsize=(6,5),subplot_kw=dict(polar=True))
-    fig.patch.set_facecolor(BG); ax.set_facecolor(BG)
-    ax.set_theta_offset(np.pi/2); ax.set_theta_direction(-1)
-    ax.set_xticks(angles[:-1])
-    ax.set_xticklabels(categories,color=TXT,fontsize=8.5)
-    ax.set_ylim(0,1)
-    ax.set_yticks([0.2,0.4,0.6,0.8,1.0])
-    ax.set_yticklabels(['0.2','0.4','0.6','0.8','1.0'],color=TXTS,fontsize=7)
-    ax.grid(color=GRID,lw=0.8,alpha=0.7)
-    ax.spines['polar'].set_color(GRID)
-
+    fig = go.Figure()
     for name,vals in models_data.items():
-        vals_plot = vals + vals[:1]
         color = colors_map[name]
-        lw = 2.5 if name=='Random Forest' else 1.5
-        alpha = 0.15 if name=='Random Forest' else 0.05
-        ax.plot(angles,vals_plot,color=color,lw=lw,label=name)
-        ax.fill(angles,vals_plot,alpha=alpha,color=color)
-
-    ax.legend(loc='upper right',bbox_to_anchor=(1.35,1.15),
-              facecolor=BG2,edgecolor=GRID,labelcolor=TXT,fontsize=8)
-    ax.set_title('Radar Chart — Perbandingan Model',color=TXT,fontsize=11,fontweight='bold',pad=20)
-    plt.tight_layout(); return fig
+        fig.add_trace(go.Scatterpolar(
+            r=vals, theta=categories, fill='toself', name=name,
+            mode='lines+markers',
+            line=dict(color=color, width=2.5),
+            marker=dict(size=7, color=color),
+            hovertemplate="%{theta}: %{r:.3f}<extra>"+name+"</extra>"
+        ))
+    fig.update_layout(
+        title=dict(text='Radar Chart — Perbandingan Model', font=dict(size=14, color=TXT)),
+        polar=dict(
+            radialaxis=dict(visible=True, range=[0, 1], gridcolor=GRID, tickfont=dict(color=TXTS, size=10)),
+            angularaxis=dict(gridcolor=GRID, tickfont=dict(size=11, color=TXT)),
+            bgcolor=BG
+        ),
+        paper_bgcolor=BG, plot_bgcolor=BG, font=dict(color=TXT),
+        legend=dict(bgcolor=BG2, bordercolor=GRID, x=1.1, y=1),
+        margin=dict(t=50, b=40, l=70, r=70),
+        height=400
+    )
+    return fig
 
 def plot_f1_recall_scatter():
-    """Scatter plot F1 vs Recall dengan bubble size = Accuracy."""
-    fig,ax = plt.subplots(figsize=(6,5))
-    fig_setup(fig,ax)
-
     models_info = [
-        ('Random Forest',0.8296,0.8235,0.9900,ACC),
-        ('KNN',          0.4348,0.2941,0.9740,CYAN),
-        ('Decision Tree',0.7820,0.7647,0.9855,YLW),
-        ('SVM',          0.6379,0.5441,0.9790,RED),
+        {'name':'Random Forest', 'f1':0.8296, 'recall':0.8235, 'acc':0.9900, 'color':ACC},
+        {'name':'KNN',           'f1':0.4348, 'recall':0.2941, 'acc':0.9740, 'color':CYAN},
+        {'name':'Decision Tree', 'f1':0.7820, 'recall':0.7647, 'acc':0.9855, 'color':YLW},
+        {'name':'SVM',           'f1':0.6379, 'recall':0.5441, 'acc':0.9790, 'color':RED},
     ]
-    for name,f1,recall,acc,color in models_info:
-        size = (acc-0.97)*10000 + 200
-        ax.scatter(recall,f1,s=size,color=color,alpha=0.85,zorder=3,edgecolors='white',lw=1.5)
-        offset_y = 0.03 if name!='KNN' else -0.05
-        ax.annotate(name,(recall,f1+offset_y),ha='center',color=color,fontsize=8.5,fontweight='bold')
+    
+    fig = go.Figure()
+    for m in models_info:
+        size = (m['acc']-0.97)*150 + 15
+        fig.add_trace(go.Scatter(
+            x=[m['recall']], y=[m['f1']], mode='markers+text', name=m['name'],
+            marker=dict(size=size, color=m['color'], line=dict(width=2, color='white')),
+            text=[m['name']], textposition='bottom center' if m['name']=='Random Forest' else 'top center'
+        ))
 
-    ax.set_xlabel('Recall Failure (Sensitivity)',fontsize=9)
-    ax.set_ylabel('F1-Score Failure',fontsize=9)
-    ax.set_title('F1 vs Recall — Bubble Size = Accuracy',fontsize=11,fontweight='bold',pad=12)
-    ax.xaxis.grid(True,color=GRID,lw=0.5,alpha=0.6)
-    ax.yaxis.grid(True,color=GRID,lw=0.5,alpha=0.6)
-    ax.set_axisbelow(True)
-    ax.set_xlim(0.1,1.0); ax.set_ylim(0.3,1.0)
+    fig.add_annotation(x=0.8235, y=0.8296, text='★ Best Model', showarrow=True, arrowhead=1, ax=-60, ay=-40, font=dict(color=YLW, size=11, weight='bold'), arrowcolor=YLW, arrowwidth=2)
 
-    ax.annotate('★ Best Model',(0.8235,0.8296),xytext=(0.55,0.92),
-                arrowprops=dict(arrowstyle='->',color=YLW,lw=1.5),
-                color=YLW,fontsize=9,fontweight='bold')
-    plt.tight_layout(pad=1.5); return fig
+    fig.update_layout(
+        title=dict(text='F1 vs Recall — Bubble Size = Accuracy', font=dict(size=14, color=TXT)),
+        xaxis=dict(title='Recall Failure (Sensitivity)', gridcolor=GRID, range=[0.1, 1.0], zeroline=False),
+        yaxis=dict(title='F1-Score Failure', gridcolor=GRID, range=[0.3, 1.0], zeroline=False),
+        paper_bgcolor=BG, plot_bgcolor=BG, font=dict(color=TXT),
+        showlegend=False,
+        height=400, margin=dict(t=50, b=20, l=20, r=20),
+        hovermode='closest'
+    )
+    return fig
 
 def plot_feature_importance():
     feats=['power','strain','torque','rot_speed','tool_wear','temp_diff','air_temp','process_temp','Type']
     imps =[0.22,0.19,0.16,0.13,0.11,0.08,0.05,0.04,0.02]
     colors=[ACC if i<3 else CYAN if i<6 else PRP for i in range(len(feats))]
 
-    fig,ax = plt.subplots(figsize=(8,4.5))
-    fig_setup(fig,ax)
-    ax.barh(feats[::-1],imps[::-1],color=colors[::-1],height=0.6,zorder=3,edgecolor='none')
-    ax.xaxis.grid(True,color=GRID,lw=0.5,zorder=0,alpha=0.6); ax.set_axisbelow(True)
-    ax.set_xlabel('Importance Score')
-    ax.set_title('Feature Importance — Random Forest',fontsize=11,fontweight='bold',pad=12)
-    for i,(v,_) in enumerate(zip(imps[::-1],feats[::-1])):
-        ax.text(v+0.003,i,f'{v:.2f}',va='center',color=TXT,fontsize=8)
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=imps[::-1], y=feats[::-1], orientation='h', marker_color=colors[::-1],
+        text=imps[::-1], texttemplate='%{text:.2f}', textposition='outside'
+    ))
 
-    legend_els = [
-        plt.Rectangle((0,0),1,1,color=ACC,label='Feature Engineering'),
-        plt.Rectangle((0,0),1,1,color=CYAN,label='Original Numeric'),
-        plt.Rectangle((0,0),1,1,color=PRP,label='Categorical'),
-    ]
-    ax.legend(handles=legend_els,facecolor=BG2,edgecolor=GRID,labelcolor=TXT,fontsize=8,loc='lower right')
-    plt.tight_layout(pad=1.5); return fig
+    fig.add_trace(go.Bar(x=[None], y=[None], name='Feature Engineering', marker_color=ACC))
+    fig.add_trace(go.Bar(x=[None], y=[None], name='Original Numeric', marker_color=CYAN))
+    fig.add_trace(go.Bar(x=[None], y=[None], name='Categorical', marker_color=PRP))
+
+    fig.update_layout(
+        title=dict(text='Feature Importance — Random Forest', font=dict(size=14, color=TXT)),
+        xaxis=dict(title='Importance Score', gridcolor=GRID, zeroline=False),
+        yaxis=dict(gridcolor=GRID, zeroline=False),
+        paper_bgcolor=BG, plot_bgcolor=BG, font=dict(color=TXT),
+        legend=dict(bgcolor=BG2, bordercolor=GRID, x=0.6, y=0.05),
+        height=400, margin=dict(t=50, b=20, l=20, r=20)
+    )
+    return fig
 
 def plot_threshold_rf():
     thresh=np.linspace(0.1,0.9,80)
     f1=np.clip(-4*(thresh-0.67)**2+0.91+np.random.normal(0,0.004,80),0.70,0.92)
-    fig,ax=plt.subplots(figsize=(7,3.5))
-    fig_setup(fig,ax)
-    ax.plot(thresh,f1,color=ACC,lw=2.5,zorder=3)
-    ax.fill_between(thresh,0.70,f1,alpha=0.12,color=ACC,zorder=2)
-    ax.axvline(x=0.67,color=YLW,linestyle='--',lw=2,label='Optimal = 0.67',zorder=4)
-    ax.scatter([0.67],[0.91],color=YLW,s=100,zorder=5,edgecolors='white',lw=1.5)
-    ax.set_xlabel('Threshold'); ax.set_ylabel('Macro F1')
-    ax.set_title('Threshold Optimization — RF',fontsize=11,fontweight='bold',pad=12)
-    ax.legend(facecolor=BG2,edgecolor=GRID,labelcolor=TXT,fontsize=9)
-    ax.xaxis.grid(True,color=GRID,lw=0.4,alpha=0.6); ax.yaxis.grid(True,color=GRID,lw=0.4,alpha=0.6)
-    plt.tight_layout(pad=1.5); return fig
+    
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=thresh, y=f1, mode='lines', fill='tozeroy', line=dict(color=ACC, width=2.5), name='Macro F1'))
+    fig.add_trace(go.Scatter(x=[0.67], y=[0.91], mode='markers', marker=dict(color=YLW, size=10, line=dict(width=2, color='white')), name='Optimal = 0.67'))
+
+    fig.update_layout(
+        title=dict(text='Threshold Optimization — RF', font=dict(size=14, color=TXT)),
+        xaxis=dict(title='Threshold', gridcolor=GRID, zeroline=False),
+        yaxis=dict(title='Macro F1', gridcolor=GRID, range=[0.70, 0.93], zeroline=False),
+        paper_bgcolor=BG, plot_bgcolor=BG, font=dict(color=TXT),
+        legend=dict(bgcolor=BG2, bordercolor=GRID, x=0.7, y=0.05),
+        height=350, margin=dict(t=50, b=20, l=20, r=20)
+    )
+    return fig
 
 def plot_confusion_rf():
-    cm=np.array([[1913,19],[12,56]])
-    fig,ax=plt.subplots(figsize=(5,4))
-    fig_setup(fig,ax)
-    im=ax.imshow(cm,cmap='Blues',vmin=0,vmax=1913)
-    ax.set_xticks([0,1]); ax.set_yticks([0,1])
-    ax.set_xticklabels(['No Failure','Failure'],color=TXT)
-    ax.set_yticklabels(['No Failure','Failure'],color=TXT)
-    ax.set_xlabel('Predicted',color=TXTS); ax.set_ylabel('Actual',color=TXTS)
-    ax.set_title('Confusion Matrix — RF',fontsize=10,fontweight='bold',pad=12)
-    thresh=cm.max()/2
-    for i in range(2):
-        for j in range(2):
-            ax.text(j,i,str(cm[i,j]),ha='center',va='center',
-                    color='white' if cm[i,j]>thresh else TXT,fontsize=16,fontweight='bold')
-    plt.colorbar(im,ax=ax); plt.tight_layout(pad=1.5); return fig
+    cm = np.array([[1913,19],[12,56]])
+    fig = px.imshow(cm, text_auto=True, color_continuous_scale='Blues',
+                    labels=dict(x="Predicted", y="Actual", color="Count"),
+                    x=['No Failure', 'Failure'], y=['No Failure', 'Failure'])
+    
+    fig.update_layout(
+        title=dict(text='Confusion Matrix — RF', font=dict(size=14, color=TXT)),
+        paper_bgcolor=BG, plot_bgcolor=BG, font=dict(color=TXT),
+        height=350, margin=dict(t=50, b=20, l=20, r=20)
+    )
+    return fig
 
 def plot_knn_k():
     k=np.arange(1,31)
     np.random.seed(42)
     acc=np.clip(0.974-0.0012*(k-5)**2+np.random.normal(0,0.002,30),0.93,0.98)
-    fig,ax=plt.subplots(figsize=(7,3.5))
-    fig_setup(fig,ax)
-    ax.plot(k,acc,color=CYAN,lw=2.5,marker='o',markersize=4,zorder=3)
     best=k[np.argmax(acc)]
-    ax.axvline(x=best,color=YLW,linestyle='--',lw=1.5,label=f'Best K={best}',zorder=4)
-    ax.fill_between(k,0.93,acc,alpha=0.12,color=CYAN)
-    ax.set_xlabel('K Value'); ax.set_ylabel('Accuracy')
-    ax.set_title('K Value vs Accuracy — KNN',fontsize=11,fontweight='bold',pad=12)
-    ax.legend(facecolor=BG2,edgecolor=GRID,labelcolor=TXT,fontsize=9)
-    ax.xaxis.grid(True,color=GRID,lw=0.4,alpha=0.6); ax.yaxis.grid(True,color=GRID,lw=0.4,alpha=0.6)
-    plt.tight_layout(pad=1.5); return fig
+    
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=k, y=acc, mode='lines+markers', line=dict(color=CYAN, width=2.5), fill='tozeroy', name='Accuracy'))
+    fig.add_trace(go.Scatter(x=[best, best], y=[0.93, acc.max()], mode='lines', line=dict(color=YLW, dash='dash', width=2), name=f'Best K={best}'))
+    
+    fig.update_layout(
+        title=dict(text='K Value vs Accuracy — KNN', font=dict(size=14, color=TXT)),
+        xaxis=dict(title='K Value', gridcolor=GRID, zeroline=False),
+        yaxis=dict(title='Accuracy', gridcolor=GRID, range=[0.93, 0.98], zeroline=False),
+        paper_bgcolor=BG, plot_bgcolor=BG, font=dict(color=TXT),
+        legend=dict(bgcolor=BG2, bordercolor=GRID, x=0.7, y=0.05),
+        height=350, margin=dict(t=50, b=20, l=20, r=20)
+    )
+    return fig
 
 def plot_dt_depth():
     d=np.arange(2,21)
     np.random.seed(7)
     tr=np.clip(0.99-0.0001*(d-20)**2+np.random.normal(0,0.003,19),0.96,1.0)
     vl=np.clip(0.985-0.0020*(d-8)**2+np.random.normal(0,0.003,19),0.93,0.99)
-    fig,ax=plt.subplots(figsize=(7,3.5))
-    fig_setup(fig,ax)
-    ax.plot(d,tr,color=ACC,lw=2,label='Train Accuracy',zorder=3)
-    ax.plot(d,vl,color=YLW,lw=2,label='Val Accuracy',zorder=3)
     best=d[np.argmax(vl)]
-    ax.axvline(x=best,color=GRN,linestyle='--',lw=1.5,label=f'Best depth={best}',zorder=4)
-    ax.set_xlabel('Max Depth'); ax.set_ylabel('Accuracy')
-    ax.set_title('Depth vs Accuracy — DT',fontsize=11,fontweight='bold',pad=12)
-    ax.legend(facecolor=BG2,edgecolor=GRID,labelcolor=TXT,fontsize=9)
-    ax.xaxis.grid(True,color=GRID,lw=0.4,alpha=0.6); ax.yaxis.grid(True,color=GRID,lw=0.4,alpha=0.6)
-    plt.tight_layout(pad=1.5); return fig
+    
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=d, y=tr, mode='lines+markers', line=dict(color=ACC, width=2), name='Train Accuracy'))
+    fig.add_trace(go.Scatter(x=d, y=vl, mode='lines+markers', line=dict(color=YLW, width=2), name='Val Accuracy'))
+    fig.add_trace(go.Scatter(x=[best, best], y=[0.93, 1.0], mode='lines', line=dict(color=GRN, dash='dash', width=2), name=f'Best depth={best}'))
+
+    fig.update_layout(
+        title=dict(text='Depth vs Accuracy — DT', font=dict(size=14, color=TXT)),
+        xaxis=dict(title='Max Depth', gridcolor=GRID, zeroline=False),
+        yaxis=dict(title='Accuracy', gridcolor=GRID, range=[0.93, 1.0], zeroline=False),
+        paper_bgcolor=BG, plot_bgcolor=BG, font=dict(color=TXT),
+        legend=dict(bgcolor=BG2, bordercolor=GRID, x=0.6, y=0.05),
+        height=350, margin=dict(t=50, b=20, l=20, r=20)
+    )
+    return fig
 
 def plot_svm_kernel():
     kernels=['Linear','RBF','Polynomial','Sigmoid']
     aucs=[0.870,0.890,0.860,0.820]
-    fig,ax=plt.subplots(figsize=(7,3.5))
-    fig_setup(fig,ax)
-    bars=ax.bar(kernels,aucs,color=[ACC,RED,CYAN,TXTS],width=0.5,zorder=3,edgecolor='none')
-    ax.set_ylim(0.75,0.93); ax.yaxis.grid(True,color=GRID,lw=0.5,zorder=0,alpha=0.6)
-    ax.set_axisbelow(True)
-    ax.set_title('Kernel Comparison — SVM',fontsize=11,fontweight='bold',pad=12)
-    for b in bars:
-        ax.text(b.get_x()+b.get_width()/2,b.get_height()+0.002,f'{b.get_height():.3f}',
-                ha='center',color=TXT,fontsize=9,fontweight='bold')
-    bars[1].set_edgecolor(YLW); bars[1].set_linewidth(2.5)
-    plt.tight_layout(pad=1.5); return fig
+    
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=kernels, y=aucs, marker_color=[ACC, RED, CYAN, TXTS],
+        marker_line=dict(color=YLW, width=[0, 2.5, 0, 0]),
+        text=aucs, texttemplate='%{text:.3f}', textposition='outside'
+    ))
+
+    fig.update_layout(
+        title=dict(text='Kernel Comparison — SVM', font=dict(size=14, color=TXT)),
+        xaxis=dict(gridcolor=GRID, zeroline=False),
+        yaxis=dict(gridcolor=GRID, range=[0.75, 0.93], zeroline=False),
+        paper_bgcolor=BG, plot_bgcolor=BG, font=dict(color=TXT),
+        height=350, margin=dict(t=50, b=20, l=20, r=20)
+    )
+    return fig
 
 def plot_svm_decision_boundary():
     from sklearn.datasets import make_moons
     from sklearn.svm import SVC
     import numpy as np
-    from matplotlib.colors import ListedColormap
+    from plotly.subplots import make_subplots
 
     X, y = make_moons(n_samples=200, noise=0.15, random_state=42)
     clf_linear = SVC(kernel='linear').fit(X, y)
     clf_rbf = SVC(kernel='rbf', C=10, gamma='auto').fit(X, y)
     
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(9, 3.5))
-    fig.patch.set_facecolor(BG)
-    
     x_min, x_max = X[:, 0].min() - 0.5, X[:, 0].max() + 0.5
     y_min, y_max = X[:, 1].min() - 0.5, X[:, 1].max() + 0.5
-    xx, yy = np.meshgrid(np.arange(x_min, x_max, 0.02),
-                         np.arange(y_min, y_max, 0.02))
+    xx, yy = np.meshgrid(np.arange(x_min, x_max, 0.05),
+                         np.arange(y_min, y_max, 0.05))
     
-    cmap_custom = ListedColormap([CYAN, RED])
+    Z_linear = clf_linear.predict(np.c_[xx.ravel(), yy.ravel()]).reshape(xx.shape)
+    Z_rbf = clf_rbf.predict(np.c_[xx.ravel(), yy.ravel()]).reshape(xx.shape)
+    
+    fig = make_subplots(rows=1, cols=2, subplot_titles=("Linear SVM (Gagal pada Data Melingkar)", "RBF SVM (Berhasil Memecah Pola)"))
+    colorscale = [[0, CYAN], [1, RED]]
     
     # Linear
-    ax1.set_facecolor(BG2)
-    Z_linear = clf_linear.predict(np.c_[xx.ravel(), yy.ravel()]).reshape(xx.shape)
-    ax1.contourf(xx, yy, Z_linear, cmap=cmap_custom, alpha=0.15)
-    ax1.scatter(X[:, 0], X[:, 1], c=y, cmap=cmap_custom, edgecolors='#ffffff', s=25, linewidths=0.5)
-    ax1.set_title("Linear SVM (Gagal pada Data Melingkar)", color=TXT, fontsize=10, fontweight='bold', pad=10)
-    ax1.tick_params(colors=TXT, labelsize=8)
-    for spine in ax1.spines.values(): spine.set_color(GRID)
+    fig.add_trace(go.Contour(x=np.arange(x_min, x_max, 0.05), y=np.arange(y_min, y_max, 0.05), z=Z_linear, showscale=False, colorscale=colorscale, opacity=0.3, hoverinfo='skip'), row=1, col=1)
+    fig.add_trace(go.Scatter(x=X[y==0][:,0], y=X[y==0][:,1], mode='markers', marker=dict(color=CYAN, line=dict(color='white', width=1)), showlegend=False), row=1, col=1)
+    fig.add_trace(go.Scatter(x=X[y==1][:,0], y=X[y==1][:,1], mode='markers', marker=dict(color=RED, line=dict(color='white', width=1)), showlegend=False), row=1, col=1)
     
     # RBF
-    ax2.set_facecolor(BG2)
-    Z_rbf = clf_rbf.predict(np.c_[xx.ravel(), yy.ravel()]).reshape(xx.shape)
-    ax2.contourf(xx, yy, Z_rbf, cmap=cmap_custom, alpha=0.15)
-    ax2.scatter(X[:, 0], X[:, 1], c=y, cmap=cmap_custom, edgecolors='#ffffff', s=25, linewidths=0.5)
-    ax2.set_title("RBF SVM (Berhasil Memecah Pola Kompleks)", color=TXT, fontsize=10, fontweight='bold', pad=10)
-    ax2.tick_params(colors=TXT, labelsize=8)
-    for spine in ax2.spines.values(): spine.set_color(GRID)
+    fig.add_trace(go.Contour(x=np.arange(x_min, x_max, 0.05), y=np.arange(y_min, y_max, 0.05), z=Z_rbf, showscale=False, colorscale=colorscale, opacity=0.3, hoverinfo='skip'), row=1, col=2)
+    fig.add_trace(go.Scatter(x=X[y==0][:,0], y=X[y==0][:,1], mode='markers', marker=dict(color=CYAN, line=dict(color='white', width=1)), showlegend=False), row=1, col=2)
+    fig.add_trace(go.Scatter(x=X[y==1][:,0], y=X[y==1][:,1], mode='markers', marker=dict(color=RED, line=dict(color='white', width=1)), showlegend=False), row=1, col=2)
     
-    plt.tight_layout(pad=1.5)
+    fig.update_layout(
+        paper_bgcolor=BG, plot_bgcolor=BG, font=dict(color=TXT),
+        height=400, margin=dict(t=50, b=20, l=20, r=20),
+        showlegend=False
+    )
+    fig.update_xaxes(gridcolor=GRID, zeroline=False)
+    fig.update_yaxes(gridcolor=GRID, zeroline=False)
     return fig
 
 # ══════════════════════════════════════════════════════════════
@@ -523,20 +546,21 @@ def show_result(pred, proba, threshold=0.5):
         st.markdown('<div class="result-ok">✅ Mesin diprediksi dalam kondisi <strong>NORMAL</strong> — tidak ada tindakan mendesak</div>', unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
-    fig,ax=plt.subplots(figsize=(8,1.3))
-    fig.patch.set_facecolor(BG); ax.set_facecolor(BG)
-    bar_color=RED if pred==1 else GRN
-    ax.barh([''],  [proba[1]], color=bar_color, height=0.55, zorder=3)
-    ax.barh([''],  [proba[0]], left=[proba[1]], color=GRID,  height=0.55, zorder=3)
-    ax.axvline(x=threshold,color=YLW,linestyle='--',lw=2.5,zorder=4,label=f'Threshold ({threshold})')
-    ax.set_xlim(0,1); ax.set_xlabel('Probabilitas',color=TXTS,fontsize=9)
-    for sp in ax.spines.values(): sp.set_color(GRID)
-    ax.tick_params(colors=TXTS)
-    ax.legend(loc='upper right',fontsize=8.5,facecolor=BG2,edgecolor=GRID,labelcolor='white')
-    ax.text(proba[1]/2,0,f'{proba[1]*100:.1f}%',ha='center',va='center',
-            color='white',fontsize=11,fontweight='bold')
-    plt.tight_layout(pad=0.5)
-    st.pyplot(fig); plt.close()
+    st.markdown("<br>", unsafe_allow_html=True)
+    fig = go.Figure()
+    bar_color = RED if pred==1 else GRN
+    fig.add_trace(go.Bar(y=[''], x=[proba[1]], orientation='h', marker_color=bar_color, text=[f'{proba[1]*100:.1f}%'], textposition='inside', textfont=dict(color='white', size=14, weight='bold'), name='Probabilitas Failure'))
+    fig.add_trace(go.Bar(y=[''], x=[proba[0]], orientation='h', marker_color=GRID, name='Probabilitas Normal'))
+    
+    fig.add_vline(x=threshold, line_width=2, line_dash="dash", line_color=YLW, annotation_text=f"Threshold ({threshold})", annotation_position="top left", annotation_font_color=YLW)
+
+    fig.update_layout(
+        barmode='stack', paper_bgcolor=BG, plot_bgcolor=BG, font=dict(color=TXT),
+        xaxis=dict(range=[0, 1], gridcolor=GRID, title='Probabilitas', zeroline=False),
+        yaxis=dict(showgrid=False, zeroline=False),
+        showlegend=False, height=150, margin=dict(t=30, b=30, l=10, r=10)
+    )
+    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
 def page_header(icon, color, subtitle, title):
     st.markdown(f"""
@@ -579,7 +603,7 @@ def model_info_tab(key, perf_rows, tech_items, chart_fns):
         cols=st.columns(2)
         for j,fn in enumerate(chart_fns[i:i+2]):
             with cols[j]:
-                st.pyplot(fn()); plt.close()
+                st.plotly_chart(fn(), use_container_width=True, config={'displayModeBar': False})
     st.markdown("---")
 
     if models.get(key):
@@ -760,34 +784,34 @@ if "Beranda" in page:
 
     c1,c2 = st.columns(2)
     with c1: 
-        st.pyplot(plot_model_comparison()); plt.close()
+        st.plotly_chart(plot_model_comparison(), use_container_width=True, config={'displayModeBar': False})
         st.caption("**Grafik 1 (Perbandingan Performa):** Menunjukkan perbandingan skor evaluasi dari data validasi. Random Forest memiliki skor F1 Failure tertinggi (biru muda), membuktikan bahwa model ini paling seimbang dan akurat dalam mendeteksi kerusakan dibandingkan model lainnya.")
     with c2: 
-        st.pyplot(plot_roc_all()); plt.close()
+        st.plotly_chart(plot_roc_all(), use_container_width=True, config={'displayModeBar': False})
         st.caption("**Grafik 2 (Kurva ROC):** Mengukur ketajaman model dalam membedakan antara mesin normal dan mesin rusak. Garis Random Forest (biru tua) memiliki cakupan area paling luas (AUC 0.982), membuktikan ketajamannya secara keseluruhan.")
 
     # Charts row 2
     c3,c4 = st.columns(2)
     with c3: 
-        st.pyplot(plot_radar()); plt.close()
+        st.plotly_chart(plot_radar(), use_container_width=True, config={'displayModeBar': False})
         st.caption("**Grafik 3 (Peta Kemampuan / Radar):** Menunjukkan sebaran performa model di berbagai metrik sekaligus. Area Random Forest menyapu bagian terluar di hampir seluruh sisi, membuktikan model ini unggul secara merata di segala kriteria evaluasi.")
     with c4: 
-        st.pyplot(plot_f1_recall_scatter()); plt.close()
+        st.plotly_chart(plot_f1_recall_scatter(), use_container_width=True, config={'displayModeBar': False})
         st.caption("**Grafik 4 (Keseimbangan F1 vs Recall):** Membandingkan langsung kemampuan mendeteksi seluruh mesin rusak (*Recall*) melawan ketepatan tebakan (*F1*). Posisi Random Forest di sudut kanan atas menunjukkan ia berhasil memaksimalkan deteksi kerusakan tanpa banyak salah tebak.")
 
     # Charts row 3
     c5,c6 = st.columns(2)
     with c5: 
-        st.pyplot(plot_class_dist()); plt.close()
+        st.plotly_chart(plot_class_dist(), use_container_width=True, config={'displayModeBar': False})
         st.caption("**Grafik 5 (Penerapan SMOTE):** Memperlihatkan teknik penyeimbangan porsi data saat *training* model. Dengan SMOTE, data mesin rusak diseimbangkan porsinya dengan mesin normal (4830 vs 4830), sehingga model dapat mengenali kerusakan secara adil tanpa bias.")
     with c6: 
-        st.pyplot(plot_feature_importance()); plt.close()
+        st.plotly_chart(plot_feature_importance(), use_container_width=True, config={'displayModeBar': False})
         st.caption("**Grafik 6 (Pengaruh Fitur Khusus):** Menunjukkan variabel mana yang paling berpengaruh pada keputusan model. Fitur turunan matematis seperti 'Power' dan 'Strain' berada di posisi puncak, membuktikan fitur tambahan ini sangat sukses meningkatkan kepekaan model.")
 
     st.markdown("---")
     st.markdown("### 🧬 Mengapa SVM Cocok untuk Data Ekstrem Kompleks?")
     st.info("Sebagai bukti visual pendukung, berikut adalah simulasi bagaimana algoritma **Support Vector Machine (SVM) dengan Kernel RBF** menangani pola data (seperti data sensor masa depan) yang sangat rumit dan tumpang tindih, dibandingkan dengan model Linear biasa.")
-    st.pyplot(plot_svm_decision_boundary()); plt.close()
+    st.plotly_chart(plot_svm_decision_boundary(), use_container_width=True, config={'displayModeBar': False})
     st.caption("**Grafik 7 (Bukti Kehebatan Kernel RBF):** Pada gambar Kiri (Linear), model gagal membuat garis pembatas yang adil karena data saling melingkar. Pada gambar Kanan (RBF), SVM secara cerdas melengkungkan area keputusannya untuk memisahkan data dengan sempurna. Inilah alasan SVM sangat direkomendasikan jika kelak pabrik memunculkan data anomali ekstrem yang non-linear.")
     st.markdown("---")
 
@@ -978,8 +1002,8 @@ elif "KNN" in page:
         c4.metric("Precision",  "0.8333")
         st.markdown("---")
         ca,cb=st.columns(2)
-        with ca: st.pyplot(plot_knn_k()); plt.close()
-        with cb: st.pyplot(plot_class_dist()); plt.close()
+        with ca: st.plotly_chart(plot_knn_k(), use_container_width=True, config={'displayModeBar': False})
+        with cb: st.plotly_chart(plot_class_dist(), use_container_width=True, config={'displayModeBar': False})
         st.markdown("---")
         if models['knn']:
             c1,c2=st.columns(2)
@@ -1046,8 +1070,8 @@ elif "Decision Tree" in page:
         c4.metric("Precision",  "0.8000")
         st.markdown("---")
         ca,cb=st.columns(2)
-        with ca: st.pyplot(plot_dt_depth()); plt.close()
-        with cb: st.pyplot(plot_class_dist()); plt.close()
+        with ca: st.plotly_chart(plot_dt_depth(), use_container_width=True, config={'displayModeBar': False})
+        with cb: st.plotly_chart(plot_class_dist(), use_container_width=True, config={'displayModeBar': False})
         st.markdown("---")
         if models['dt']:
             c1,c2=st.columns(2)
@@ -1115,8 +1139,8 @@ elif "SVM" in page:
         c4.metric("Precision",  "0.7708")
         st.markdown("---")
         ca,cb=st.columns(2)
-        with ca: st.pyplot(plot_svm_kernel()); plt.close()
-        with cb: st.pyplot(plot_class_dist()); plt.close()
+        with ca: st.plotly_chart(plot_svm_kernel(), use_container_width=True, config={'displayModeBar': False})
+        with cb: st.plotly_chart(plot_class_dist(), use_container_width=True, config={'displayModeBar': False})
         st.markdown("---")
         if models['svm']:
             c1,c2=st.columns(2)
@@ -1187,6 +1211,7 @@ elif "Kesimpulan" in page:
     page_header("📊","#6c63ff","Perbandingan & Analisis","Kesimpulan Model")
 
     st.markdown("### 📋 Tabel Perbandingan Lengkap")
+    st.markdown("Berikut adalah kompilasi metrik dari seluruh model yang kita ujicobakan. Warna-warni tabel ini menunjukkan mana algoritma yang paling tangguh dalam mendeteksi mesin rusak.")
     st.dataframe(pd.DataFrame({
         'Model'         :['🌲 Random Forest','🔵 KNN','🌳 Decision Tree','⚡ SVM'],
         'Accuracy'      :['99.00%','97.40%','98.55%','97.90%'],
@@ -1196,101 +1221,75 @@ elif "Kesimpulan" in page:
         'Data Training' :['SMOTE','Data Asli','Data Asli','Data Asli'],
         'Feature Eng.'  :['✅ Ya (3 FE)','❌ Tidak','❌ Tidak','❌ Tidak'],
         'Ranking'       :['🥇 1st','🥉 4th','🥈 2nd','🥉 3rd'],
-    }),use_container_width=True,hide_index=True)
+    }).style.background_gradient(cmap='viridis', subset=['F1 Failure']),use_container_width=True,hide_index=True)
 
     st.markdown("---")
     c1,c2=st.columns(2)
-    with c1: st.pyplot(plot_model_comparison()); plt.close()
-    with c2: st.pyplot(plot_radar()); plt.close()
+    with c1: 
+        with st.container(border=True): st.plotly_chart(plot_model_comparison(), use_container_width=True, config={'displayModeBar': False})
+    with c2: 
+        with st.container(border=True): st.plotly_chart(plot_radar(), use_container_width=True, config={'displayModeBar': False})
 
     c3,c4=st.columns(2)
-    with c3: st.pyplot(plot_roc_all()); plt.close()
-    with c4: st.pyplot(plot_f1_recall_scatter()); plt.close()
-
-    st.markdown("---")
-    st.markdown("### 🔍 Bukti Visual: Kemampuan SVM pada Data Kompleks")
-    st.pyplot(plot_svm_decision_boundary()); plt.close()
-    st.caption("**Bukti Simulasi RBF Kernel:** SVM mampu membelah batas data yang saling tumpang tindih dan melingkar, di mana model dengan garis pemisah lurus (Linear) akan gagal total.")
-
-    st.markdown("---")
-    st.markdown("### 💡 Rekomendasi Penggunaan (Berbasis Bukti)")
-    r1, r2 = st.columns(2)
-    with r1:
-        st.markdown("""
-        <div class="hero-card" style="border-top: 4px solid #6c63ff; min-height: 160px;">
-        <h4 style="margin-top:0;">🏭 Untuk Lingkungan Produksi (Aman Maksimal)</h4>
-        <b>Gunakan: Random Forest</b><br><br>
-        <b>Bukti Kuat:</b> RF memegang skor <i>Recall Failure</i> tertinggi (0.8235) dan F1 tertinggi (0.8296). Artinya, jika pabrik memprioritaskan keselamatan dan tidak mau kecolongan ada mesin meledak secara mendadak, RF adalah pilihan paling aman karena ia sangat peka dan paling jarang melewatkan gejala kerusakan.
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown("""
-        <div class="hero-card" style="border-top: 4px solid #00b4d8; min-height: 160px;">
-        <h4 style="margin-top:0;">🎯 Untuk Akurasi Alarm (Anti-Panik)</h4>
-        <b>Gunakan: KNN</b><br><br>
-        <b>Bukti Kuat:</b> KNN memiliki skor <i>Precision Fail</i> tertinggi kedua (0.8333). Artinya, kalau alarm berbunyi "Mesin Akan Rusak!", kemungkinan kebenarannya adalah 83,33% (hampir tidak ada <i>False Alarm</i> / alarm palsu). Sangat cocok dipakai bila biaya operasional untuk menghentikan mesin guna proses inspeksi itu sangat mahal.
-        </div>
-        """, unsafe_allow_html=True)
-    with r2:
-        st.markdown("""
-        <div class="hero-card" style="border-top: 4px solid #2ed573; min-height: 160px;">
-        <h4 style="margin-top:0;">⚡ Untuk Perangkat Rendah / Cepat (Edge Computing)</h4>
-        <b>Gunakan: Decision Tree</b><br><br>
-        <b>Bukti Kuat:</b> Model DT dilatih dengan batas algoritma <i>max_depth=10</i>. Secara komputasi, ia maksimal hanya butuh menjawab 10 pertanyaan logika "Ya/Tidak" <i>(If-Else)</i> untuk mengambil keputusan akhir. Ini menjadikannya yang tercepat (dalam hitungan <i>micro-seconds</i>), sangat ringan, namun tetap mempertahankan F1 Score yang bagus (0.78).
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown("""
-        <div class="hero-card" style="border-top: 4px solid #f9ca24; min-height: 160px;">
-        <h4 style="margin-top:0;">🌐 Untuk Data Sensor Ekstrem Kompleks</h4>
-        <b>Gunakan: SVM (Support Vector Machine)</b><br><br>
-        <b>Bukti Kuat:</b> SVM di-setting menggunakan <i>Kernel RBF</i>. Secara matematis, ia memproyeksikan data sensor ke ruang dimensi tinggi untuk menggambar batas area pemisah yang melengkung secara fleksibel. Kemampuan ini (ditunjukkan pada visualisasi <i>Decision Boundary</i> di atas/beranda) menjadikannya sangat tangguh apabila pabrik memunculkan data sensor yang pola kerusakannya sangat acak dan saling tumpang tindih.
-        </div>
-        """, unsafe_allow_html=True)
-
+    with c3: 
+        with st.container(border=True): st.plotly_chart(plot_roc_all(), use_container_width=True, config={'displayModeBar': False})
+    with c4: 
+        with st.container(border=True): st.plotly_chart(plot_f1_recall_scatter(), use_container_width=True, config={'displayModeBar': False})
     st.markdown("---")
     st.markdown("### 🏆 Kesimpulan Validasi: Mengapa Random Forest Menjadi Juara Mutlak?")
+    st.markdown("""
+    Meskipun nilai **Akurasi Global** pada model Decision Tree (98.55%) hampir menyamai Random Forest (99.00%), keunggulan utama Random Forest terletak pada kemampuannya mendeteksi kelas data minoritas (Mesin Rusak). 
+    Pada dataset operasi mesin ini, memprediksi mesin dalam keadaan normal adalah hal yang mudah karena 96,6% data memang merupakan mesin normal. Tantangan utamanya adalah mendeteksi 3,4% data kerusakan mesin tersebut secara akurat.
+    """)
+    st.markdown("<br>", unsafe_allow_html=True)
     
-    with st.expander("👉 KLIK UNTUK MEMBUKA BUKTI VALIDASI RANDOM FOREST SEBAGAI MODEL TERBAIK", expanded=True):
+    k1, k2 = st.columns(2)
+    with k1:
         st.markdown("""
-        Meskipun nilai **Akurasi Global** pada model Decision Tree (98.55%) hampir menyamai Random Forest (99.00%), keunggulan utama Random Forest terletak pada kemampuannya mendeteksi kelas data minoritas (Mesin Rusak). 
+        <div class="hero-card" style="border-top: 4px solid #a855f7; min-height: 230px;">
+        <div>
+        <h4 style="margin-top:0; color:#a855f7;">1️⃣ Ensemble Learning</h4>
+        Berbeda dengan model <i>Decision Tree</i> tunggal yang rentan terhadap bias data, <i>Random Forest</i> dibangun dari gabungan <b>427 pohon keputusan</b>.<br><br>Ketika ada ketidaknormalan pada data sensor, keputusan prediksi akhir tidak diambil dari satu pohon saja, melainkan menggabungkan prediksi dari ke-427 pohon tersebut. Proses ini membantu meminimalkan kesalahan prediksi dan menghasilkan keputusan yang jauh lebih stabil.
+        </div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown("""
+        <div class="hero-card" style="border-top: 4px solid #00b4d8; min-height: 230px;">
+        <div>
+        <h4 style="margin-top:0; color:#00b4d8;">3️⃣ Penambahan Fitur Baru</h4>
+        Daripada hanya menggunakan data sensor mentah (seperti suhu dan putaran), penerapan <b>Feature Engineering</b> memungkinkan kita menambahkan fitur baru (seperti <i>Power/Daya</i> dan <i>Strain/Tekanan</i>) yang dihitung dari perpaduan sensor tersebut.<br><br>Informasi tambahan ini sangat membantu Random Forest mengenali kondisi kritis pemicu kerusakan, sehingga metrik <i>Recall Failure</i>-nya dapat mencapai skor tinggi di 0.8235.
+        </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with k2:
+        st.markdown("""
+        <div class="hero-card" style="border-top: 4px solid #2ed573; min-height: 230px;">
+        <div>
+        <h4 style="margin-top:0; color:#2ed573;">2️⃣ Penyeimbangan Data (SMOTE)</h4>
+        Model klasifikasi sering kali kesulitan memprediksi kelas yang jumlah datanya sangat sedikit.<br><br>Metode <i>Random Forest</i> yang digunakan mengatasi hal ini dengan menerapkan algoritma <b>SMOTE</b>. Teknik ini menambahkan data buatan pada tahap pelatihan agar jumlah data mesin normal dan rusak menjadi seimbang (<b>50:50</b>). Hasilnya, model dapat mempelajari pola kerusakan dengan porsi yang sama baiknya dengan pola mesin normal.
+        </div>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown("""
+        <div class="hero-card" style="border-top: 4px solid #ff4757; min-height: 230px;">
+        <div>
+        <h4 style="margin-top:0; color:#ff4757;">4️⃣ Evaluasi ROC-AUC</h4>
+        ROC-AUC mengukur seberapa mampu sebuah model membedakan kelas secara keseluruhan.<br><br>Pada data yang tidak seimbang, akurasi biasa sangat menyesatkan. ROC-AUC membuktikan kehebatan asli model dengan menguji semua batas kemungkinan. Nilai AUC tertinggi pada Random Forest (<b>0.9818</b>) menjadi bukti valid bahwa secara probabilitas matematis, Random Forest memiliki insting pemisah yang paling tajam.
+        </div>
+        </div>
+        """, unsafe_allow_html=True)
 
-        Pada dataset operasi mesin ini, memprediksi mesin dalam keadaan normal adalah hal yang mudah karena 96,6% data memang merupakan mesin normal. Tantangan utamanya adalah mendeteksi 3,4% data kerusakan mesin tersebut secara akurat.
-        """)
-        
-        tab1, tab2, tab3, tab4 = st.tabs(["1️⃣ Ensemble Learning", "2️⃣ Penyeimbangan Data", "3️⃣ Penambahan Fitur Baru", "4️⃣ Evaluasi ROC-AUC"])
-        
-        with tab1:
-            st.success("""
-            **Penggunaan Banyak Pohon Keputusan (Ensemble Learning)**
-            Berbeda dengan model *Decision Tree* tunggal yang rentan terhadap bias data, *Random Forest* dibangun dari gabungan **427 pohon keputusan**. 
-            Ketika ada ketidaknormalan pada data sensor, keputusan prediksi akhir tidak diambil dari satu pohon saja, melainkan menggabungkan prediksi dari ke-427 pohon tersebut. Proses ini membantu meminimalkan kesalahan prediksi dan menghasilkan keputusan yang jauh lebih stabil.
-            """)
-            
-        with tab2:
-            st.success("""
-            **Penyeimbangan Porsi Data (SMOTE)**
-            Model klasifikasi sering kali kesulitan memprediksi kelas yang jumlah datanya sangat sedikit. 
-            Metode *Random Forest* yang digunakan mengatasi hal ini dengan menerapkan algoritma **SMOTE**. Teknik ini menambahkan data buatan pada tahap pelatihan agar jumlah data mesin normal dan rusak menjadi seimbang (**50:50**). Hasilnya, model dapat mempelajari pola kerusakan dengan porsi yang sama baiknya dengan pola mesin normal.
-            """)
-            
-        with tab3:
-            st.success("""
-            **Penggunaan Variabel Hasil Perhitungan (Feature Engineering)**
-            Daripada hanya menggunakan data sensor mentah (seperti suhu dan putaran), penerapan **Feature Engineering** memungkinkan kita menambahkan fitur baru (seperti *Power/Daya* dan *Strain/Tekanan*) yang dihitung dari perpaduan sensor tersebut. 
-            Informasi tambahan ini sangat membantu Random Forest mengenali kondisi kritis pemicu kerusakan, sehingga metrik *Recall Failure*-nya dapat mencapai skor tinggi di 0.8235.
-            """)
-            
-        with tab4:
-            st.success("""
-            **Pengukuran Ketajaman Model (ROC-AUC)**
-            ROC-AUC (*Receiver Operating Characteristic - Area Under Curve*) adalah metrik evaluasi yang mengukur seberapa mampu sebuah model membedakan kelas mesin normal dan kelas mesin rusak secara keseluruhan. Nilai maksimalnya adalah 1.0.
-            
-            **Mengapa ini penting untuk Random Forest?** Pada data yang tidak seimbang, akurasi biasa sangat menyesatkan. ROC-AUC membuktikan kehebatan asli dari model dengan menguji semua batas kemungkinan. Nilai AUC tertinggi pada Random Forest (**0.9818**) menjadi bukti valid bahwa secara probabilitas matematis, Random Forest memiliki insting pemisah yang paling tajam dibandingkan algoritma lainnya.
-            """)
-            
-        st.warning("""
-        **Kesimpulan Akhir Pemilihan Model:** 
-        Dengan demikian, nilai **F1 Failure = 0.8296** pada Random Forest menunjukkan keandalan model yang sangat baik dalam mendeteksi kerusakan secara tepat. Keseimbangan yang baik antara ketepatan tebakan (*Precision*) dan kemampuan mendeteksi seluruh kerusakan (*Recall*) menjadikan Random Forest sebagai solusi *Predictive Maintenance* yang paling disarankan untuk penggunaan di lapangan.
-        """)
+    st.markdown("""
+    <div class="hero-card" style="border: 2px solid #6c63ff; background: linear-gradient(145deg, rgba(108,99,255,0.15), rgba(37,37,69,0.9)); margin-top: 10px;">
+    <div>
+    <h3 style="margin-top:0; color:white; text-align:center;">🎯 Kesimpulan Akhir Pemilihan Model</h3>
+    <p style="font-size: 1.05rem; line-height: 1.6; text-align:center; color:#c0c0d0;">
+    Nilai <b>F1 Failure = 0.8296</b> pada Random Forest menunjukkan keandalan model yang sangat baik dalam mendeteksi kerusakan secara tepat. Keseimbangan yang sempurna antara ketepatan tebakan (<i>Precision</i>) dan kemampuan mendeteksi seluruh kerusakan (<i>Recall</i>) menjadikan <b>Random Forest</b> sebagai solusi <i>Predictive Maintenance</i> yang paling direkomendasikan dan siap digunakan di lapangan secara profesional.
+    </p>
+    </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════
 #  PAGE: TIM PENGEMBANG
@@ -1302,7 +1301,7 @@ elif page == "👥 Tim Pengembang":
     c1, c2 = st.columns(2)
     with c1:
         st.markdown("""
-        <div class="hero-card" style="border-top: 4px solid #6c63ff; min-height: 420px; margin-bottom: 20px;">
+        <div class="hero-card" style="border-top: 4px solid #6c63ff; margin-bottom: 20px;">
             <div style="font-size: 3rem; text-align: center; margin-bottom: 5px;">👑</div>
             <h4 style="text-align: center; margin-top: 0; color: #ffffff;">Ketut Qorry Kharismayani</h4>
             <p style="text-align: center; color: #00b4d8; font-weight: bold; margin-bottom: 15px; font-size: 0.9rem;">NIM: 607012400015 | Ketua</p>
@@ -1317,7 +1316,7 @@ elif page == "👥 Tim Pengembang":
         """, unsafe_allow_html=True)
     with c2:
         st.markdown("""
-        <div class="hero-card" style="border-top: 4px solid #00b4d8; min-height: 420px; margin-bottom: 20px;">
+        <div class="hero-card" style="border-top: 4px solid #00b4d8; margin-bottom: 20px;">
             <div style="font-size: 3rem; text-align: center; margin-bottom: 5px;">👩‍💻</div>
             <h4 style="text-align: center; margin-top: 0; color: #ffffff;">Fazrina Esa Putri Permana</h4>
             <p style="text-align: center; color: #00b4d8; font-weight: bold; margin-bottom: 15px; font-size: 0.9rem;">NIM: 607012400047 | Anggota</p>
@@ -1334,7 +1333,7 @@ elif page == "👥 Tim Pengembang":
     c3, c4 = st.columns(2)
     with c3:
         st.markdown("""
-        <div class="hero-card" style="border-top: 4px solid #f9ca24; min-height: 420px; margin-bottom: 20px;">
+        <div class="hero-card" style="border-top: 4px solid #f9ca24; margin-bottom: 20px;">
             <div style="font-size: 3rem; text-align: center; margin-bottom: 5px;">👩‍💻</div>
             <h4 style="text-align: center; margin-top: 0; color: #ffffff;">Dalfa Munawwarotul Mahmudah</h4>
             <p style="text-align: center; color: #00b4d8; font-weight: bold; margin-bottom: 15px; font-size: 0.9rem;">NIM: 607012430008 | Anggota</p>
@@ -1349,7 +1348,7 @@ elif page == "👥 Tim Pengembang":
         """, unsafe_allow_html=True)
     with c4:
         st.markdown("""
-        <div class="hero-card" style="border-top: 4px solid #2ed573; min-height: 420px; margin-bottom: 20px;">
+        <div class="hero-card" style="border-top: 4px solid #2ed573; margin-bottom: 20px;">
             <div style="font-size: 3rem; text-align: center; margin-bottom: 5px;">👩‍💻</div>
             <h4 style="text-align: center; margin-top: 0; color: #ffffff;">Inaya Faridah</h4>
             <p style="text-align: center; color: #00b4d8; font-weight: bold; margin-bottom: 15px; font-size: 0.9rem;">NIM: 607012430016 | Anggota</p>
